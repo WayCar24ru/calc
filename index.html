@@ -12,7 +12,7 @@
         .header h1 { font-size: 1.6rem; margin: 0 0 5px 0; color: #2c3e50; }
         .header p { font-size: 0.85rem; color: #7f8c8d; margin: 0; }
         .card { background: white; border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .card-title { font-size: 1rem; font-weight: 600; margin-bottom: 12px; color: #2c3e50; border-left: 3px solid #3498db; padding-left: 10px; }
+        .card-title { font-size: 1rem; font-weight: 600; margin-bottom: 12px; color: #2c3e50; border-left: 3px solid #3498db; padding-left: 10px; cursor: pointer; }
         .input-group { margin-bottom: 14px; }
         .input-group label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 5px; color: #34495e; }
         .input-group input, .input-group select { width: 100%; padding: 12px 14px; font-size: 1rem; border: 1px solid #ddd; border-radius: 12px; background: white; }
@@ -28,7 +28,7 @@
         .total-label { font-size: 0.9rem; opacity: 0.9; }
         .total-value { font-size: 1.8rem; font-weight: bold; word-break: break-word; }
         .spoiler-btn { background: #ecf0f1; border: none; padding: 10px; width: 100%; text-align: center; border-radius: 40px; font-size: 0.85rem; cursor: pointer; margin-top: 8px; }
-        .spoiler-content { display: none; margin-top: 12px; background: #f8f9fa; border-radius: 12px; padding: 12px; white-space: pre-wrap; font-family: monospace; font-size: 0.75rem; }
+        .spoiler-content { display: none; margin-top: 12px; background: #f8f9fa; border-radius: 12px; padding: 12px; white-space: pre-wrap; font-family: monospace; font-size: 0.75rem; overflow-x: auto; }
         .spoiler-content.show { display: block; }
         .rates-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; }
         .rates-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; }
@@ -70,7 +70,7 @@
     </div>
     
     <div class="card">
-        <div class="card-title">📝 Параметры автомобиля</div>
+        <div class="card-title" style="cursor: default;">📝 Параметры автомобиля</div>
         <div class="input-group">
             <label>Страна ввоза</label>
             <select id="country">
@@ -100,7 +100,7 @@
     </div>
     
     <div class="card">
-        <div class="card-title" style="cursor: pointer;" onclick="toggleRates()">📊 Курсы валют <span id="ratesToggleIcon">▶</span></div>
+        <div class="card-title" onclick="toggleRates()">📊 Курсы валют <span id="ratesToggleIcon">▶</span></div>
         <div id="ratesContent" style="display: none;">
             <div class="rates-grid" id="ratesGrid"></div>
             <button class="btn-secondary" onclick="updateAllRates()">🔄 Обновить курсы</button>
@@ -116,7 +116,7 @@
     <div id="detailsContent" class="spoiler-content"></div>
     
     <div id="adminPanel" class="admin-panel">
-        <div class="card-title">👑 Админ-панель</div>
+        <div class="card-title" style="border-left-color: #f39c12; cursor: default;">👑 Админ-панель</div>
         <div id="adminRates"></div>
         <button class="btn-primary" style="background: #27ae60; margin-top: 12px;" onclick="saveAdminSettings()">💾 Сохранить настройки</button>
     </div>
@@ -135,7 +135,9 @@
 <div id="toast" class="toast"></div>
 
 <script>
-    var ACCESS_PASSWORD = "1";
+    // ==================== ЗАЩИТА ПАРОЛЕМ ====================
+    var ACCESS_PASSWORD = "secret123";
+    
     function showToast(message, isError) {
         var toast = document.getElementById("toast");
         toast.textContent = message;
@@ -143,6 +145,7 @@
         toast.classList.add("show");
         setTimeout(function() { toast.classList.remove("show"); }, 2000);
     }
+    
     function checkAccessPassword() {
         var pwd = document.getElementById("accessPassword").value;
         if (pwd === ACCESS_PASSWORD) {
@@ -156,8 +159,12 @@
             document.getElementById("accessPassword").focus();
         }
     }
-    document.getElementById("accessPassword").addEventListener("keypress", function(e) { if (e.key === "Enter") checkAccessPassword(); });
     
+    document.getElementById("accessPassword").addEventListener("keypress", function(e) { 
+        if (e.key === "Enter") checkAccessPassword(); 
+    });
+    
+    // ==================== НАСТРОЙКИ ====================
     var settings = {
         countryCosts: {
             japan: { localExpenses: 220000, brokerFee: 27000, currencyName: "йен" },
@@ -165,10 +172,17 @@
             korea: { localExpenses: 2000000, brokerFee: 85000, currencyName: "вон" }
         },
         rates: {
-            usdAtb: 77.72, eurAtb: 92.70, cnyAtb: 11.40, jpyAtb: 51.50, krwAtb: 16.89, krwUsd: 1450.0, eurCb: 89.63
+            usdAtb: 77.72,
+            eurAtb: 92.70,
+            cnyAtb: 11.40,
+            jpyAtb: 51.50,
+            krwAtb: 16.89,
+            krwUsd: 1450.0,
+            eurCb: 89.63
         },
         fixedCosts: { customsFee: 1300, waycar: 60000 }
     };
+    
     var currentAge = 2;
     
     function loadSettings() {
@@ -185,11 +199,16 @@
         renderAdminRates();
         updateCountryHint();
     }
-    function saveSettings() { localStorage.setItem("carCalcSettings", JSON.stringify(settings)); }
+    
+    function saveSettings() { 
+        localStorage.setItem("carCalcSettings", JSON.stringify(settings)); 
+    }
+    
     function renderRates() {
         var grid = document.getElementById("ratesGrid");
         if (!grid) return;
-        grid.innerHTML = '<div class="rates-item"><span class="rates-label">USD → RUB (АТБ):</span><span class="rates-value">' + settings.rates.usdAtb.toFixed(2) + ' руб</span></div>' +
+        grid.innerHTML = 
+            '<div class="rates-item"><span class="rates-label">USD → RUB (АТБ):</span><span class="rates-value">' + settings.rates.usdAtb.toFixed(2) + ' руб</span></div>' +
             '<div class="rates-item"><span class="rates-label">EUR → RUB (АТБ):</span><span class="rates-value">' + settings.rates.eurAtb.toFixed(2) + ' руб</span></div>' +
             '<div class="rates-item"><span class="rates-label">CNY (юань) → RUB:</span><span class="rates-value">' + settings.rates.cnyAtb.toFixed(2) + ' руб</span></div>' +
             '<div class="rates-item"><span class="rates-label">JPY (за 100 йен) → RUB:</span><span class="rates-value">' + settings.rates.jpyAtb.toFixed(2) + ' руб</span></div>' +
@@ -197,26 +216,31 @@
             '<div class="rates-item"><span class="rates-label">KRW → USD:</span><span class="rates-value">' + settings.rates.krwUsd.toFixed(2) + '</span></div>' +
             '<div class="rates-item"><span class="rates-label">EUR (ЦБ РФ) для таможни:</span><span class="rates-value">' + settings.rates.eurCb.toFixed(2) + ' руб</span></div>';
     }
+    
     function renderAdminRates() {
         var container = document.getElementById("adminRates");
         if (!container) return;
-        container.innerHTML = '<div class="edit-rates">' +
-            '<label>USD (АТБ):</label><input type="number" id="admin_usdAtb" step="0.01" value="' + settings.rates.usdAtb + '">' +
-            '<label>EUR (АТБ):</label><input type="number" id="admin_eurAtb" step="0.01" value="' + settings.rates.eurAtb + '">' +
-            '<label>CNY (юань):</label><input type="number" id="admin_cnyAtb" step="0.01" value="' + settings.rates.cnyAtb + '">' +
-            '<label>JPY (за 100):</label><input type="number" id="admin_jpyAtb" step="0.01" value="' + settings.rates.jpyAtb + '">' +
-            '<label>KRW (за 100):</label><input type="number" id="admin_krwAtb" step="0.01" value="' + settings.rates.krwAtb + '">' +
-            '<label>KRW → USD:</label><input type="number" id="admin_krwUsd" step="0.01" value="' + settings.rates.krwUsd + '">' +
-            '<label>EUR (ЦБ):</label><input type="number" id="admin_eurCb" step="0.01" value="' + settings.rates.eurCb + '">' +
-            '</div><div style="margin-top:12px;font-weight:bold;">📦 Расходы по странам</div><div class="edit-rates">' +
-            '<label>Япония (доставка):</label><input type="number" id="admin_japanExpenses" value="' + settings.countryCosts.japan.localExpenses + '">' +
-            '<label>Япония (брокер):</label><input type="number" id="admin_japanBroker" value="' + settings.countryCosts.japan.brokerFee + '">' +
-            '<label>Китай (доставка):</label><input type="number" id="admin_chinaExpenses" value="' + settings.countryCosts.china.localExpenses + '">' +
-            '<label>Китай (брокер):</label><input type="number" id="admin_chinaBroker" value="' + settings.countryCosts.china.brokerFee + '">' +
-            '<label>Корея (доставка):</label><input type="number" id="admin_koreaExpenses" value="' + settings.countryCosts.korea.localExpenses + '">' +
-            '<label>Корея (брокер):</label><input type="number" id="admin_koreaBroker" value="' + settings.countryCosts.korea.brokerFee + '">' +
+        container.innerHTML = 
+            '<div class="edit-rates">' +
+                '<label>USD (АТБ):</label><input type="number" id="admin_usdAtb" step="0.01" value="' + settings.rates.usdAtb + '">' +
+                '<label>EUR (АТБ):</label><input type="number" id="admin_eurAtb" step="0.01" value="' + settings.rates.eurAtb + '">' +
+                '<label>CNY (юань):</label><input type="number" id="admin_cnyAtb" step="0.01" value="' + settings.rates.cnyAtb + '">' +
+                '<label>JPY (за 100):</label><input type="number" id="admin_jpyAtb" step="0.01" value="' + settings.rates.jpyAtb + '">' +
+                '<label>KRW (за 100):</label><input type="number" id="admin_krwAtb" step="0.01" value="' + settings.rates.krwAtb + '">' +
+                '<label>KRW → USD:</label><input type="number" id="admin_krwUsd" step="0.01" value="' + settings.rates.krwUsd + '">' +
+                '<label>EUR (ЦБ):</label><input type="number" id="admin_eurCb" step="0.01" value="' + settings.rates.eurCb + '">' +
+            '</div>' +
+            '<div style="margin-top:12px;font-weight:bold;">📦 Расходы по странам</div>' +
+            '<div class="edit-rates">' +
+                '<label>Япония (доставка):</label><input type="number" id="admin_japanExpenses" value="' + settings.countryCosts.japan.localExpenses + '">' +
+                '<label>Япония (брокер):</label><input type="number" id="admin_japanBroker" value="' + settings.countryCosts.japan.brokerFee + '">' +
+                '<label>Китай (доставка):</label><input type="number" id="admin_chinaExpenses" value="' + settings.countryCosts.china.localExpenses + '">' +
+                '<label>Китай (брокер):</label><input type="number" id="admin_chinaBroker" value="' + settings.countryCosts.china.brokerFee + '">' +
+                '<label>Корея (доставка):</label><input type="number" id="admin_koreaExpenses" value="' + settings.countryCosts.korea.localExpenses + '">' +
+                '<label>Корея (брокер):</label><input type="number" id="admin_koreaBroker" value="' + settings.countryCosts.korea.brokerFee + '">' +
             '</div>';
     }
+    
     function saveAdminSettings() {
         settings.rates.usdAtb = parseFloat(document.getElementById("admin_usdAtb").value) || settings.rates.usdAtb;
         settings.rates.eurAtb = parseFloat(document.getElementById("admin_eurAtb").value) || settings.rates.eurAtb;
@@ -225,34 +249,43 @@
         settings.rates.krwAtb = parseFloat(document.getElementById("admin_krwAtb").value) || settings.rates.krwAtb;
         settings.rates.krwUsd = parseFloat(document.getElementById("admin_krwUsd").value) || settings.rates.krwUsd;
         settings.rates.eurCb = parseFloat(document.getElementById("admin_eurCb").value) || settings.rates.eurCb;
+        
         settings.countryCosts.japan.localExpenses = parseFloat(document.getElementById("admin_japanExpenses").value) || settings.countryCosts.japan.localExpenses;
         settings.countryCosts.japan.brokerFee = parseFloat(document.getElementById("admin_japanBroker").value) || settings.countryCosts.japan.brokerFee;
         settings.countryCosts.china.localExpenses = parseFloat(document.getElementById("admin_chinaExpenses").value) || settings.countryCosts.china.localExpenses;
         settings.countryCosts.china.brokerFee = parseFloat(document.getElementById("admin_chinaBroker").value) || settings.countryCosts.china.brokerFee;
         settings.countryCosts.korea.localExpenses = parseFloat(document.getElementById("admin_koreaExpenses").value) || settings.countryCosts.korea.localExpenses;
         settings.countryCosts.korea.brokerFee = parseFloat(document.getElementById("admin_koreaBroker").value) || settings.countryCosts.korea.brokerFee;
+        
         saveSettings();
         renderRates();
         showToast("Настройки сохранены!", false);
         calculate();
     }
+    
     async function updateAllRates() {
         showToast("Обновление курсов...", false);
         try {
             var resp = await fetch('https://api.exchangerate-api.com/v4/latest/KRW');
             var data = await resp.json();
             if (data.rates && data.rates.USD) settings.rates.krwUsd = data.rates.USD;
-        } catch(e) {}
+        } catch(e) { console.log("Ошибка обновления KRW/USD"); }
         renderRates();
         saveSettings();
         showToast("Курсы обновлены!", false);
         calculate();
     }
+    
     function updateCountryHint() {
         var country = document.getElementById("country").value;
-        var hintMap = { japan: "💡 Цену смотрите на аукционе USS или в инвойсе", china: "💡 Цену смотрите на 1688, Taobao или в инвойсе", korea: "💡 На Encart найдите '판매가' (продажная цена)" };
+        var hintMap = { 
+            japan: "💡 Цену смотрите на аукционе USS или в инвойсе", 
+            china: "💡 Цену смотрите на 1688, Taobao или в инвойсе", 
+            korea: "💡 На Encart найдите '판매가' (продажная цена)" 
+        };
         document.getElementById("countryHint").innerHTML = hintMap[country] || "";
     }
+    
     function getCustomsRate(priceEur, volume, age) {
         if (age < 3) {
             var ratePerCm, percent;
@@ -279,19 +312,28 @@
             else return volume * 5.7;
         }
     }
+    
     function calculateBankCommission(amountRub) {
         var commission = amountRub * 0.015;
         return Math.max(10000, Math.min(commission, 30000));
     }
+    
     function calculate() {
         var country = document.getElementById("country").value;
         if (!country) return;
+        
         var priceLocal = parseFloat(document.getElementById("price").value) || 0;
         var volume = parseFloat(document.getElementById("volume").value) || 0;
-        if (priceLocal <= 0 || volume <= 0) { document.getElementById("totalValue").innerHTML = "0 ₽"; return; }
+        
+        if (priceLocal <= 0 || volume <= 0) {
+            document.getElementById("totalValue").innerHTML = "0 ₽";
+            return;
+        }
+        
         var age = currentAge;
         var countryData = settings.countryCosts[country];
         var rates = settings.rates;
+        
         var priceRub, conversionDesc;
         if (country === "japan") {
             priceRub = priceLocal * (rates.jpyAtb / 100);
@@ -304,6 +346,7 @@
             priceRub = usdAmount * rates.usdAtb;
             conversionDesc = priceLocal.toLocaleString() + " вон ÷ " + rates.krwUsd.toFixed(2) + " = " + usdAmount.toFixed(2) + " USD × " + rates.usdAtb.toFixed(2);
         }
+        
         var localExpensesRub;
         if (country === "korea") {
             var usdExpenses = countryData.localExpenses / rates.krwUsd;
@@ -312,20 +355,26 @@
             var localToRub = country === "japan" ? rates.jpyAtb/100 : rates.cnyAtb;
             localExpensesRub = countryData.localExpenses * localToRub;
         }
+        
         var totalWithExpenses = priceRub + localExpensesRub;
         var bankCommission = calculateBankCommission(totalWithExpenses);
         var subtotal = totalWithExpenses + bankCommission + countryData.brokerFee;
+        
         var priceForCustomsEur = (priceRub + localExpensesRub) / rates.eurCb;
         var customsEur = getCustomsRate(priceForCustomsEur, volume, age);
         var customsRub = customsEur * rates.eurCb;
+        
         var utilFee = age < 3 ? 3000 : 5200;
         var totalFixed = settings.fixedCosts.customsFee + utilFee + settings.fixedCosts.waycar;
         var totalRub = subtotal + customsRub + totalFixed;
+        
         document.getElementById("totalValue").innerHTML = totalRub.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " ₽";
+        
         var ageText = age < 3 ? "младше 3 лет" : (age < 5 ? "от 3 до 5 лет" : "старше 5 лет");
         var countryName = {japan: "Япония", china: "Китай", korea: "Корея"}[country];
         var customsDesc = age < 3 ? "48-54% от стоимости, но не менее " + (customsEur/volume).toFixed(1) + " €/см³" : (customsEur/volume).toFixed(1) + " €/см³ × " + volume + " см³";
-        document.getElementById("detailsContent").innerHTML = 
+        
+        var detailsText = 
 "╔══════════════════════════════════════════════════════════════════╗\n" +
 "║                       ПОДРОБНЫЙ РАСЧЁТ                          ║\n" +
 "╚══════════════════════════════════════════════════════════════════╝\n\n" +
@@ -358,24 +407,45 @@
 "🎯 ИТОГОВАЯ СТОИМОСТЬ на дороге в РФ:\n\n" +
 "   " + totalRub.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + " РУБЛЕЙ\n\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+        
+        document.getElementById("detailsContent").innerHTML = detailsText;
     }
+    
     function toggleRates() {
         var content = document.getElementById("ratesContent");
         var icon = document.getElementById("ratesToggleIcon");
-        if (content.style.display === "none") { content.style.display = "block"; icon.textContent = "▼"; }
-        else { content.style.display = "none"; icon.textContent = "▶"; }
+        if (content.style.display === "none") { 
+            content.style.display = "block"; 
+            icon.textContent = "▼"; 
+        } else { 
+            content.style.display = "none"; 
+            icon.textContent = "▶"; 
+        }
     }
+    
     function toggleDetails() {
         var content = document.getElementById("detailsContent");
         var btn = document.getElementById("detailsBtn");
-        if (content.classList.contains("show")) { content.classList.remove("show"); btn.textContent = "▶ Показать подробный расчёт"; }
-        else { content.classList.add("show"); btn.textContent = "▼ Скрыть подробный расчёт"; }
+        if (content.classList.contains("show")) { 
+            content.classList.remove("show"); 
+            btn.textContent = "▶ Показать подробный расчёт"; 
+        } else { 
+            content.classList.add("show"); 
+            btn.textContent = "▼ Скрыть подробный расчёт"; 
+        }
     }
+    
     function showAdminPassword() {
         var pwd = prompt("🔐 Введите пароль администратора:");
-        if (pwd === "100498") { document.getElementById("adminPanel").classList.add("show"); renderAdminRates(); }
-        else if (pwd !== null) { showToast("Неверный пароль!", true); }
+        if (pwd === "100498") { 
+            document.getElementById("adminPanel").classList.add("show"); 
+            renderAdminRates(); 
+        } else if (pwd !== null) { 
+            showToast("Неверный пароль!", true); 
+        }
     }
+    
+    // ==================== ИНИЦИАЛИЗАЦИЯ СОБЫТИЙ ====================
     document.querySelectorAll(".age-btn").forEach(function(btn) {
         btn.addEventListener("click", function() {
             document.querySelectorAll(".age-btn").forEach(function(b) { b.classList.remove("active"); });
@@ -384,10 +454,19 @@
             calculate();
         });
     });
-    document.getElementById("country").addEventListener("change", function() { updateCountryHint(); calculate(); });
+    
+    document.getElementById("country").addEventListener("change", function() { 
+        updateCountryHint(); 
+        calculate(); 
+    });
+    
     document.getElementById("price").addEventListener("input", function() { calculate(); });
     document.getElementById("volume").addEventListener("input", function() { calculate(); });
-    document.querySelectorAll(".age-btn").forEach(function(btn) { if (parseInt(btn.dataset.age) === currentAge) btn.classList.add("active"); });
+    
+    // Устанавливаем активную кнопку возраста по умолчанию
+    document.querySelectorAll(".age-btn").forEach(function(btn) { 
+        if (parseInt(btn.dataset.age) === currentAge) btn.classList.add("active"); 
+    });
 </script>
 </body>
 </html>
