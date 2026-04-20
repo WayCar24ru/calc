@@ -147,11 +147,6 @@
             color: #3498db;
         }
         
-        .btn-danger {
-            background: #e74c3c;
-            color: white;
-        }
-        
         /* Результат */
         .total {
             text-align: center;
@@ -280,7 +275,7 @@
         
         /* Модальное окно для пароля */
         .modal {
-            display: none;
+            display: flex;
             position: fixed;
             top: 0;
             left: 0;
@@ -309,6 +304,13 @@
             font-size: 1rem;
         }
         
+        .modal-content .error {
+            color: #e74c3c;
+            font-size: 0.8rem;
+            margin-top: -8px;
+            margin-bottom: 8px;
+        }
+        
         /* Адаптивность */
         @media (max-width: 480px) {
             body {
@@ -323,31 +325,26 @@
             }
         }
         
-        /* Страница запрета доступа */
-        .denied {
-            text-align: center;
-            margin-top: 100px;
-            font-family: sans-serif;
-        }
-        .denied h2 {
-            color: #e74c3c;
+        /* Основной контент (скрыт до ввода пароля) */
+        #mainContent {
+            display: none;
         }
     </style>
 </head>
 <body>
 
-<script>
-    // ==================== ЗАЩИТА ПАРОЛЕМ ====================
-    // 🔐 ИЗМЕНИТЕ ПАРОЛЬ НА СВОЙ В ЭТОЙ СТРОКЕ:
-    var ACCESS_PASSWORD = "secret123";
-    
-    var userPassword = prompt("🔐 Введите пароль для доступа к калькулятору:");
-    if (userPassword !== ACCESS_PASSWORD) {
-        document.body.innerHTML = '<div class="denied"><h2>❌ Доступ запрещён</h2><p>Неверный пароль</p></div>';
-        throw new Error("Access denied");
-    }
-</script>
+<!-- Модальное окно для пароля доступа -->
+<div id="passwordModal" class="modal">
+    <div class="modal-content">
+        <div style="font-weight: bold; margin-bottom: 10px;">🔐 Введите пароль для доступа</div>
+        <input type="password" id="accessPassword" placeholder="Пароль" autofocus>
+        <div id="passwordError" class="error" style="display: none;">❌ Неверный пароль</div>
+        <button class="btn-primary" style="padding: 10px;" onclick="checkAccessPassword()">Войти</button>
+    </div>
+</div>
 
+<!-- Основной контент -->
+<div id="mainContent">
 <div class="container">
     <div class="header">
         <h1>🚗 Калькулятор растаможки</h1>
@@ -427,18 +424,37 @@
         <div>📞 Телефон: <a href="tel:+79832703501">+7 (983) 270-35-01</a></div>
     </div>
 </div>
-
-<!-- Модальное окно для пароля админа -->
-<div id="passwordModal" class="modal">
-    <div class="modal-content">
-        <div style="font-weight: bold; margin-bottom: 10px;">🔐 Введите пароль администратора</div>
-        <input type="password" id="adminPassword" placeholder="Пароль">
-        <button class="btn-primary" style="padding: 10px;" onclick="checkAdminPassword()">Войти</button>
-        <button class="btn-outline" style="margin-top: 8px; padding: 8px;" onclick="closePasswordModal()">Отмена</button>
-    </div>
 </div>
 
 <script>
+    // ==================== ЗАЩИТА ПАРОЛЕМ ====================
+    // 🔐 ИЗМЕНИТЕ ПАРОЛЬ НА СВОЙ В ЭТОЙ СТРОКЕ:
+    var ACCESS_PASSWORD = "secret123";
+    
+    function checkAccessPassword() {
+        var pwd = document.getElementById("accessPassword").value;
+        if (pwd === ACCESS_PASSWORD) {
+            // Пароль верный — показываем основной контент
+            document.getElementById("passwordModal").style.display = "none";
+            document.getElementById("mainContent").style.display = "block";
+            // Инициализируем калькулятор
+            loadSettings();
+            calculate();
+        } else {
+            // Пароль неверный — показываем ошибку
+            document.getElementById("passwordError").style.display = "block";
+            document.getElementById("accessPassword").value = "";
+            document.getElementById("accessPassword").focus();
+        }
+    }
+    
+    // Нажатие Enter в поле пароля
+    document.getElementById("accessPassword").addEventListener("keypress", function(e) {
+        if (e.key === "Enter") {
+            checkAccessPassword();
+        }
+    });
+    
     // ==================== НАСТРОЙКИ ПО УМОЛЧАНИЮ ====================
     let settings = {
         countryCosts: {
@@ -602,7 +618,7 @@
             china: "💡 Цену смотрите на 1688, Taobao или в инвойсе",
             korea: "💡 На Encart найдите '판매가' (продажная цена)"
         };
-        document.getElementById("countryHint").innerText = hintMap[country] || "";
+        document.getElementById("countryHint").innerHTML = hintMap[country] || "";
     }
     
     // ==================== РАСЧЁТ ТАМОЖНИ ====================
@@ -639,24 +655,14 @@
     }
     
     // ==================== ОСНОВНОЙ РАСЧЁТ ====================
-    async function calculate() {
+    function calculate() {
         const country = document.getElementById("country").value;
-        if (!country) {
-            alert("Пожалуйста, выберите страну ввоза");
-            return;
-        }
+        if (!country) return;
         
         let priceLocal = parseFloat(document.getElementById("price").value) || 0;
         let volume = parseFloat(document.getElementById("volume").value) || 0;
         
-        if (priceLocal <= 0) {
-            alert("Введите цену автомобиля");
-            return;
-        }
-        if (volume <= 0) {
-            alert("Введите объём двигателя");
-            return;
-        }
+        if (priceLocal <= 0 || volume <= 0) return;
         
         const age = currentAge;
         const countryData = settings.countryCosts[country];
@@ -776,23 +782,12 @@
     }
     
     function showAdminPassword() {
-        document.getElementById("passwordModal").style.display = "flex";
-    }
-    
-    function closePasswordModal() {
-        document.getElementById("passwordModal").style.display = "none";
-        document.getElementById("adminPassword").value = "";
-    }
-    
-    function checkAdminPassword() {
-        const pwd = document.getElementById("adminPassword").value;
+        const pwd = prompt("🔐 Введите пароль администратора:");
         if (pwd === "100498") {
             document.getElementById("adminPanel").classList.add("show");
-            closePasswordModal();
             renderAdminRates();
-        } else {
+        } else if (pwd !== null) {
             alert("Неверный пароль!");
-            closePasswordModal();
         }
     }
     
@@ -806,16 +801,13 @@
         });
     });
     
-    // События
+    // События — без alert, просто пересчёт
     document.getElementById("country").addEventListener("change", () => {
         updateCountryHint();
         calculate();
     });
-    document.getElementById("price").addEventListener("input", calculate);
-    document.getElementById("volume").addEventListener("input", calculate);
-    
-    // Инициализация
-    loadSettings();
+    document.getElementById("price").addEventListener("input", () => calculate());
+    document.getElementById("volume").addEventListener("input", () => calculate());
     
     // Устанавливаем активную кнопку возраста по умолчанию
     document.querySelectorAll(".age-btn").forEach(btn => {
@@ -823,8 +815,6 @@
             btn.classList.add("active");
         }
     });
-    
-    calculate();
 </script>
 </body>
 </html>
