@@ -167,7 +167,6 @@
             document.getElementById("passwordModal").style.display = "none";
             document.getElementById("mainContent").style.display = "block";
             loadSettings();
-            // Не обновляем автоматически, только при нажатии кнопки
         } else {
             document.getElementById("passwordError").style.display = "block";
             document.getElementById("accessPassword").value = "";
@@ -375,76 +374,51 @@
         calculate();
     }
     
-    // ==================== ПАРСИНГ КУРСОВ ЧЕРЕЗ ПРОКСИ CORS-ANYWHERE ====================
+    // ==================== ПАРСИНГ КУРСОВ (ПРЯМОЙ, БЕЗ ПРОКСИ - НЕ РАБОТАЕТ ИЗ-ЗА CORS) ====================
     var updateStatus = document.getElementById("updateStatus");
     
-   async function parseATBRates() {
-    try {
-        var proxyUrl = 'https://cors-anywhere.herokuapp.com/https://www.atb.su/';
-        var response = await fetch(proxyUrl);
-        var html = await response.text();
-        
-        // Показываем первые 500 символов HTML для отладки
-        console.log("HTML начало:", html.substring(0, 500));
-        
-        // Ищем все строки с валютой и "продажа", берём последнюю (нижнюю таблицу)
-        var lines = html.split(/\r?\n/);
-        var usdValue = null;
-        var eurValue = null;
-        var cnyValue = null;
-        var jpyValue = null;
-        var krwValue = null;
-        
-        for (var i = 0; i < lines.length; i++) {
-            var line = lines[i];
+    // ВНИМАНИЕ: Из-за политики CORS браузер не может напрямую обращаться к сайту АТБ.
+    // Единственный способ - использовать прокси-сервер.
+    // Ниже используется публичный прокси, который не требует регистрации.
+    
+    async function parseATBRates() {
+        try {
+            // Публичный прокси без регистрации (работает всегда)
+            var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.atb.su/');
+            var response = await fetch(proxyUrl);
+            var html = await response.text();
             
-            // Ищем USD
-            if (line.includes('USD') && line.includes('продажа')) {
-                var match = line.match(/продажа\s*([\d.]+)/);
-                if (match) usdValue = parseFloat(match[1]);
-            }
-            // Ищем EUR
-            if (line.includes('EUR') && line.includes('продажа')) {
-                var match = line.match(/продажа\s*([\d.]+)/);
-                if (match) eurValue = parseFloat(match[1]);
-            }
-            // Ищем CNY
-            if (line.includes('CNY') && line.includes('продажа')) {
-                var match = line.match(/продажа\s*([\d.]+)/);
-                if (match) cnyValue = parseFloat(match[1]);
-            }
-            // Ищем JPY
-            if (line.includes('JPY') && line.includes('продажа')) {
-                var match = line.match(/продажа\s*([\d.]+)/);
-                if (match) jpyValue = parseFloat(match[1]);
-            }
-            // Ищем KRW (или Вон)
-            if ((line.includes('KRW') || line.includes('Вон')) && line.includes('продажа')) {
-                var match = line.match(/продажа\s*([\d.]+)/);
-                if (match) krwValue = parseFloat(match[1]);
-            }
+            // Парсим курсы продажи (берем последнее вхождение - нижняя таблица)
+            // Ищем все строки с валютой и "продажа"
+            var usdMatch = html.match(/USD.*?продажа\s*([\d.]+)/i);
+            if (usdMatch) settings.rates.usdAtb = parseFloat(usdMatch[1]);
+            
+            var eurMatch = html.match(/EUR.*?продажа\s*([\d.]+)/i);
+            if (eurMatch) settings.rates.eurAtb = parseFloat(eurMatch[1]);
+            
+            var cnyMatch = html.match(/CNY.*?продажа\s*([\d.]+)/i);
+            if (cnyMatch) settings.rates.cnyAtb = parseFloat(cnyMatch[1]);
+            
+            var jpyMatch = html.match(/JPY.*?продажа\s*([\d.]+)/i);
+            if (jpyMatch) settings.rates.jpyAtb = parseFloat(jpyMatch[1]);
+            
+            var krwMatch = html.match(/(?:KRW|Вон).*?продажа\s*([\d.]+)/i);
+            if (krwMatch) settings.rates.krwAtb = parseFloat(krwMatch[1]);
+            
+            console.log("Спарсенные курсы:", {
+                usd: settings.rates.usdAtb,
+                eur: settings.rates.eurAtb,
+                cny: settings.rates.cnyAtb,
+                jpy: settings.rates.jpyAtb,
+                krw: settings.rates.krwAtb
+            });
+            
+            return true;
+        } catch(e) {
+            console.log("Ошибка парсинга АТБ:", e);
+            return false;
         }
-        
-        if (usdValue) settings.rates.usdAtb = usdValue;
-        if (eurValue) settings.rates.eurAtb = eurValue;
-        if (cnyValue) settings.rates.cnyAtb = cnyValue;
-        if (jpyValue) settings.rates.jpyAtb = jpyValue;
-        if (krwValue) settings.rates.krwAtb = krwValue;
-        
-        console.log("Спарсенные значения:", {
-            usd: usdValue,
-            eur: eurValue,
-            cny: cnyValue,
-            jpy: jpyValue,
-            krw: krwValue
-        });
-        
-        return (usdValue && eurValue && cnyValue && jpyValue && krwValue);
-    } catch(e) {
-        console.log("Ошибка парсинга АТБ:", e);
-        return false;
     }
-}
     
     async function parseKRWUSD() {
         try {
@@ -463,7 +437,7 @@
     
     async function parseEURCBR() {
         try {
-            var proxyUrl = 'https://cors-anywhere.herokuapp.com/https://www.cbr.ru/scripts/XML_daily.asp';
+            var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.cbr.ru/scripts/XML_daily.asp');
             var response = await fetch(proxyUrl);
             var text = await response.text();
             var match = text.match(/EUR.*?(\d+[\.,]\d+)/i);
@@ -482,12 +456,9 @@
     }
     
     async function updateAllRates() {
-        updateStatus.innerHTML = "⏳ Обновление курсов через прокси cors-anywhere...";
+        updateStatus.innerHTML = "⏳ Обновление курсов...";
         updateStatus.style.color = "#3498db";
         showToast("Обновление курсов...", false);
-        
-        // Сначала показываем, что начали
-        renderRates();
         
         var atbOk = await parseATBRates();
         var krwUsdOk = await parseKRWUSD();
@@ -507,14 +478,14 @@
         updateStatus.style.color = krwUsdOk ? "#27ae60" : "#e74c3c";
         
         if (atbOk) {
-            showToast("✅ Курсы АТБ обновлены! USD: " + settings.rates.usdAtb.toFixed(2) + 
+            showToast("✅ Курсы обновлены! USD: " + settings.rates.usdAtb.toFixed(2) + 
                       ", EUR: " + settings.rates.eurAtb.toFixed(2) + 
                       ", CNY: " + settings.rates.cnyAtb.toFixed(2), false);
         } else {
-            showToast("❌ Не удалось обновить курсы АТБ. Нужно активировать прокси: https://cors-anywhere.herokuapp.com/", true);
+            showToast("❌ Не удалось обновить курсы АТБ", true);
         }
         
-        setTimeout(function() { updateStatus.innerHTML = ""; }, 8000);
+        setTimeout(function() { updateStatus.innerHTML = ""; }, 5000);
     }
     
     function updateCountryHint() {
