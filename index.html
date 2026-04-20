@@ -30,10 +30,11 @@
         .spoiler-content { display: none; margin-top: 12px; background: #f8f9fa; border-radius: 12px; padding: 12px; white-space: pre-wrap; font-family: monospace; font-size: 0.75rem; overflow-x: auto; }
         .spoiler-content.show { display: block; }
         .rates-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; margin-bottom: 12px; }
-        .rates-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; cursor: pointer; }
-        .rates-item:hover { background: #f0f0f0; }
+        .rates-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; }
         .rates-label { color: #7f8c8d; font-weight: 500; }
-        .rates-value { font-weight: 600; color: #2c3e50; }
+        .rates-value { font-weight: 600; color: #2c3e50; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+        .rates-value:hover { background: #e0e0e0; }
+        .rates-value input { width: 100px; padding: 4px 6px; border: 1px solid #3498db; border-radius: 8px; text-align: right; font-size: 0.8rem; }
         .admin-panel { display: none; margin-top: 16px; padding: 16px; background: #fef9e7; border-radius: 16px; border: 1px solid #f39c12; }
         .admin-panel.show { display: block; }
         .edit-rates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
@@ -48,8 +49,12 @@
         #mainContent { display: none; }
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 8px 16px; border-radius: 40px; font-size: 0.8rem; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
         .toast.show { opacity: 1; }
-        .edit-buttons { display: flex; gap: 8px; margin-top: 8px; }
         @media (max-width: 480px) { .total-value { font-size: 1.4rem; } .age-btn { font-size: 0.7rem; padding: 8px 4px; } .rates-grid { grid-template-columns: 1fr; } }
+        
+        /* Стили для форматирования цены */
+        .price-input-wrapper { position: relative; }
+        .price-input-wrapper input { padding-right: 30px; }
+        .currency-symbol { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #7f8c8d; font-size: 0.85rem; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -84,7 +89,9 @@
         </div>
         <div class="input-group">
             <label>Цена покупки (в валюте страны)</label>
-            <input type="number" id="price" placeholder="Введите число" step="1" value="0">
+            <div class="price-input-wrapper">
+                <input type="text" id="price" placeholder="Введите число" value="0" style="text-align: right;">
+            </div>
         </div>
         <div class="input-group">
             <label>Объём двигателя (см³)</label>
@@ -163,6 +170,39 @@
         if (e.key === "Enter") checkAccessPassword(); 
     });
     
+    // ==================== ФОРМАТИРОВАНИЕ ЦЕНЫ ====================
+    function formatNumberWithSpaces(num) {
+        if (num === undefined || num === null || isNaN(num)) return "0";
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    }
+    
+    function parseFormattedNumber(str) {
+        if (!str) return 0;
+        return parseFloat(str.replace(/\s/g, "")) || 0;
+    }
+    
+    // Обработчик ввода цены с пробелами
+    var priceInput = document.getElementById("price");
+    if (priceInput) {
+        priceInput.addEventListener("input", function(e) {
+            var rawValue = this.value.replace(/\s/g, "");
+            var num = parseFloat(rawValue);
+            if (!isNaN(num)) {
+                this.value = formatNumberWithSpaces(num);
+                calculate();
+            } else if (this.value === "") {
+                calculate();
+            }
+        });
+        
+        priceInput.addEventListener("blur", function() {
+            if (this.value === "") {
+                this.value = "0";
+                calculate();
+            }
+        });
+    }
+    
     // ==================== НАСТРОЙКИ ====================
     var settings = {
         countryCosts: {
@@ -183,6 +223,7 @@
     };
     
     var currentAge = 2;
+    var editingKey = null;
     
     function loadSettings() {
         var saved = localStorage.getItem("carCalcSettings");
@@ -204,6 +245,45 @@
         localStorage.setItem("carCalcSettings", JSON.stringify(settings)); 
     }
     
+    function startEdit(key, element) {
+        if (editingKey) return;
+        editingKey = key;
+        var currentValue = settings.rates[key];
+        var span = element;
+        var input = document.createElement("input");
+        input.type = "number";
+        input.step = "0.01";
+        input.value = currentValue;
+        input.style.width = "100px";
+        input.style.padding = "4px 6px";
+        input.style.border = "1px solid #3498db";
+        input.style.borderRadius = "8px";
+        input.style.textAlign = "right";
+        
+        input.addEventListener("blur", function() {
+            var newValue = parseFloat(this.value);
+            if (!isNaN(newValue) && newValue > 0) {
+                settings.rates[key] = newValue;
+                renderRates();
+                renderAdminRates();
+                saveSettings();
+                calculate();
+                showToast("Курс обновлён!", false);
+            }
+            editingKey = null;
+        });
+        
+        input.addEventListener("keypress", function(e) {
+            if (e.key === "Enter") {
+                this.blur();
+            }
+        });
+        
+        span.innerHTML = "";
+        span.appendChild(input);
+        input.focus();
+    }
+    
     function renderRates() {
         var grid = document.getElementById("ratesGrid");
         if (!grid) return;
@@ -219,29 +299,11 @@
         ];
         
         grid.innerHTML = ratesList.map(item => `
-            <div class="rates-item" onclick="startEdit('${item.key}')">
+            <div class="rates-item">
                 <span class="rates-label">${item.label}</span>
-                <span class="rates-value">${settings.rates[item.key].toFixed(2)}${item.suffix}</span>
+                <span class="rates-value" data-key="${item.key}" onclick="startEdit('${item.key}', this)">${settings.rates[item.key].toFixed(2)}${item.suffix}</span>
             </div>
         `).join('');
-    }
-    
-    function startEdit(key) {
-        var currentValue = settings.rates[key];
-        var newValue = prompt("Введите новое значение для курса:", currentValue);
-        if (newValue !== null) {
-            var parsed = parseFloat(newValue);
-            if (!isNaN(parsed) && parsed > 0) {
-                settings.rates[key] = parsed;
-                renderRates();
-                renderAdminRates();
-                saveSettings();
-                calculate();
-                showToast("Курс обновлён!", false);
-            } else {
-                showToast("Введите корректное число!", true);
-            }
-        }
     }
     
     function renderAdminRates() {
@@ -323,19 +385,28 @@
             var googleData = await googleResponse.json();
             var googleHtml = googleData.contents;
             
-            var rateMatch = googleHtml.match(/USD-KRW.*?data-last-price="([\d.]+)"/);
-            if (rateMatch) {
+            // Ищем курс в разных форматах
+            var rateMatch = googleHtml.match(/data-last-price="([\d.]+)"/i);
+            if (rateMatch && rateMatch[1]) {
                 settings.rates.krwUsd = parseFloat(rateMatch[1]);
             } else {
-                var altMatch = googleHtml.match(/\["USDKRW","[^"]*","([\d.]+)"/);
-                if (altMatch) settings.rates.krwUsd = parseFloat(altMatch[1]);
+                var altMatch = googleHtml.match(/\["USDKRW","[^"]*","([\d.]+)"/i);
+                if (altMatch && altMatch[1]) {
+                    settings.rates.krwUsd = parseFloat(altMatch[1]);
+                } else {
+                    var textMatch = googleHtml.match(/USD\/KRW.*?([\d.]+)/i);
+                    if (textMatch && textMatch[1]) {
+                        settings.rates.krwUsd = parseFloat(textMatch[1]);
+                    }
+                }
             }
-        } catch(e) { console.log("Ошибка парсинга Google Finance"); }
+            console.log("KRW/USD загружен:", settings.rates.krwUsd);
+        } catch(e) { console.log("Ошибка парсинга Google Finance", e); }
         
         renderRates();
         renderAdminRates();
         saveSettings();
-        showToast("Курсы обновлены!", false);
+        showToast("Курсы обновлены! KRW/USD: " + settings.rates.krwUsd.toFixed(2), false);
         calculate();
     }
     
@@ -388,7 +459,7 @@
             return;
         }
         
-        var priceLocal = parseFloat(document.getElementById("price").value) || 0;
+        var priceLocal = parseFormattedNumber(document.getElementById("price").value);
         var volume = parseFloat(document.getElementById("volume").value) || 0;
         
         if (priceLocal <= 0 || volume <= 0) {
@@ -403,14 +474,14 @@
         var priceRub, conversionDesc;
         if (country === "japan") {
             priceRub = priceLocal * (rates.jpyAtb / 100);
-            conversionDesc = priceLocal.toLocaleString() + " йен × " + (rates.jpyAtb/100).toFixed(4);
+            conversionDesc = formatNumberWithSpaces(priceLocal) + " йен × " + (rates.jpyAtb/100).toFixed(4);
         } else if (country === "china") {
             priceRub = priceLocal * rates.cnyAtb;
-            conversionDesc = priceLocal.toLocaleString() + " юаней × " + rates.cnyAtb.toFixed(4);
+            conversionDesc = formatNumberWithSpaces(priceLocal) + " юаней × " + rates.cnyAtb.toFixed(4);
         } else {
             var usdAmount = priceLocal / rates.krwUsd;
             priceRub = usdAmount * rates.usdAtb;
-            conversionDesc = priceLocal.toLocaleString() + " вон ÷ " + rates.krwUsd.toFixed(2) + " = " + usdAmount.toFixed(2) + " USD × " + rates.usdAtb.toFixed(2);
+            conversionDesc = formatNumberWithSpaces(priceLocal) + " вон ÷ " + rates.krwUsd.toFixed(2) + " = " + usdAmount.toFixed(2) + " USD × " + rates.usdAtb.toFixed(2);
         }
         
         var localExpensesRub;
@@ -434,7 +505,7 @@
         var totalFixed = settings.fixedCosts.customsFee + utilFee + settings.fixedCosts.waycar;
         var totalRub = subtotal + customsRub + totalFixed;
         
-        document.getElementById("totalValue").innerHTML = totalRub.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " ₽";
+        document.getElementById("totalValue").innerHTML = formatNumberWithSpaces(Math.round(totalRub)) + " ₽";
         
         var ageText = age < 3 ? "младше 3 лет" : (age < 5 ? "от 3 до 5 лет" : "старше 5 лет");
         var countryName = {japan: "Япония", china: "Китай", korea: "Корея"}[country];
@@ -447,31 +518,31 @@
 "📌 Страна: " + countryName + " | Возраст: " + ageText + " | Объём: " + volume + " см³\n\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
 "💰 1. СТОИМОСТЬ АВТОМОБИЛЯ:\n" +
-"   Цена: " + priceLocal.toLocaleString() + " " + countryData.currencyName + "\n" +
+"   Цена: " + formatNumberWithSpaces(priceLocal) + " " + countryData.currencyName + "\n" +
 "   Конвертация: " + conversionDesc + "\n" +
-"   → " + priceRub.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + " руб.\n\n" +
+"   → " + formatNumberWithSpaces(Math.round(priceRub)) + " руб.\n\n" +
 "🚢 2. РАСХОДЫ НА ДОСТАВКУ И ОФОРМЛЕНИЕ:\n" +
-"   " + countryData.localExpenses.toLocaleString() + " " + countryData.currencyName + " → " + localExpensesRub.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + " руб.\n\n" +
+"   " + formatNumberWithSpaces(countryData.localExpenses) + " " + countryData.currencyName + " → " + formatNumberWithSpaces(Math.round(localExpensesRub)) + " руб.\n\n" +
 "🏦 3. КОМИССИЯ БАНКА (1.5%, мин 10 000, макс 30 000 руб.):\n" +
-"   Сумма: " + totalWithExpenses.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + " руб. × 1.5% = " + bankCommission.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + " руб.\n\n" +
+"   Сумма: " + formatNumberWithSpaces(Math.round(totalWithExpenses)) + " руб. × 1.5% = " + formatNumberWithSpaces(Math.round(bankCommission)) + " руб.\n\n" +
 "📋 4. БРОКЕРСКИЕ РАСХОДЫ:\n" +
-"   → " + countryData.brokerFee.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + " руб.\n\n" +
+"   → " + formatNumberWithSpaces(countryData.brokerFee) + " руб.\n\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-"📊 ПРОМЕЖУТОЧНАЯ СУММА: " + subtotal.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + " руб.\n" +
+"📊 ПРОМЕЖУТОЧНАЯ СУММА: " + formatNumberWithSpaces(Math.round(subtotal)) + " руб.\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
 "🏛️ 5. ТАМОЖЕННАЯ ПОШЛИНА:\n" +
 "   Расчёт: " + customsDesc + "\n" +
-"   Стоимость для таможни: " + priceForCustomsEur.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + " EUR\n" +
-"   Сумма: " + customsEur.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + " EUR × " + rates.eurCb.toFixed(2) + " = " + customsRub.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + " руб.\n\n" +
+"   Стоимость для таможни: " + formatNumberWithSpaces(Math.round(priceForCustomsEur)) + " EUR\n" +
+"   Сумма: " + formatNumberWithSpaces(Math.round(customsEur)) + " EUR × " + rates.eurCb.toFixed(2) + " = " + formatNumberWithSpaces(Math.round(customsRub)) + " руб.\n\n" +
 "📦 6. ПРОЧИЕ РАСХОДЫ:\n" +
-"   • Таможенный сбор:    " + settings.fixedCosts.customsFee.toLocaleString() + " руб.\n" +
-"   • Утилизационный сбор: " + utilFee.toLocaleString() + " руб.\n" +
-"   • Компания WayCar:     " + settings.fixedCosts.waycar.toLocaleString() + " руб.\n" +
+"   • Таможенный сбор:    " + formatNumberWithSpaces(settings.fixedCosts.customsFee) + " руб.\n" +
+"   • Утилизационный сбор: " + formatNumberWithSpaces(utilFee) + " руб.\n" +
+"   • Компания WayCar:     " + formatNumberWithSpaces(settings.fixedCosts.waycar) + " руб.\n" +
 "   ───────────────────────────────────────────\n" +
-"   Итого прочие:          " + totalFixed.toLocaleString() + " руб.\n\n" +
+"   Итого прочие:          " + formatNumberWithSpaces(totalFixed) + " руб.\n\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
 "🎯 ИТОГОВАЯ СТОИМОСТЬ на дороге в РФ:\n\n" +
-"   " + totalRub.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + " РУБЛЕЙ\n\n" +
+"   " + formatNumberWithSpaces(Math.round(totalRub)) + " РУБЛЕЙ\n\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
         
         document.getElementById("detailsContent").innerHTML = detailsText;
@@ -514,7 +585,6 @@
         calculate(); 
     });
     
-    document.getElementById("price").addEventListener("input", function() { calculate(); });
     document.getElementById("volume").addEventListener("input", function() { calculate(); });
     
     document.querySelectorAll(".age-btn").forEach(function(btn) { 
