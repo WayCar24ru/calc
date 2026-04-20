@@ -379,37 +379,43 @@
     // ==================== ПАРСИНГ КУРСОВ ЧЕРЕЗ ПРОКСИ ====================
     var updateStatus = document.getElementById("updateStatus");
     
-    async function parseATBRates() {
-        try {
-            // Используем прокси для обхода CORS
-            var proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.atb.su/');
-            var response = await fetch(proxyUrl);
-            var data = await response.json();
-            var html = data.contents;
-            
-            // Парсим курсы продажи (берем последнее вхождение - нижняя таблица)
-            var usdMatch = html.match(/USD.*?продажа\s*([\d.]+)/i);
-            if (usdMatch) settings.rates.usdAtb = parseFloat(usdMatch[1]);
-            
-            var eurMatch = html.match(/EUR.*?продажа\s*([\d.]+)/i);
-            if (eurMatch) settings.rates.eurAtb = parseFloat(eurMatch[1]);
-            
-            var cnyMatch = html.match(/CNY.*?продажа\s*([\d.]+)/i);
-            if (cnyMatch) settings.rates.cnyAtb = parseFloat(cnyMatch[1]);
-            
-            var jpyMatch = html.match(/JPY.*?продажа\s*([\d.]+)/i);
-            if (jpyMatch) settings.rates.jpyAtb = parseFloat(jpyMatch[1]);
-            
-            // Для KRW ищем оба варианта
-            var krwMatch = html.match(/(?:KRW|Вон).*?продажа\s*([\d.]+)/i);
-            if (krwMatch) settings.rates.krwAtb = parseFloat(krwMatch[1]);
-            
-            return true;
-        } catch(e) {
-            console.log("Ошибка парсинга АТБ:", e);
-            return false;
-        }
+   async function parseATBRates() {
+    try {
+        // Используем другой прокси, который лучше работает с АТБ
+        var proxyUrl = 'https://cors-anywhere.herokuapp.com/https://www.atb.su/';
+        var response = await fetch(proxyUrl);
+        var html = await response.text();
+        
+        // Парсим курсы продажи (берем последнее вхождение - нижняя таблица)
+        var usdMatch = html.match(/USD.*?продажа\s*([\d.]+)/i);
+        if (usdMatch) settings.rates.usdAtb = parseFloat(usdMatch[1]);
+        
+        var eurMatch = html.match(/EUR.*?продажа\s*([\d.]+)/i);
+        if (eurMatch) settings.rates.eurAtb = parseFloat(eurMatch[1]);
+        
+        var cnyMatch = html.match(/CNY.*?продажа\s*([\d.]+)/i);
+        if (cnyMatch) settings.rates.cnyAtb = parseFloat(cnyMatch[1]);
+        
+        var jpyMatch = html.match(/JPY.*?продажа\s*([\d.]+)/i);
+        if (jpyMatch) settings.rates.jpyAtb = parseFloat(jpyMatch[1]);
+        
+        var krwMatch = html.match(/(?:KRW|Вон).*?продажа\s*([\d.]+)/i);
+        if (krwMatch) settings.rates.krwAtb = parseFloat(krwMatch[1]);
+        
+        console.log("Парсинг АТБ успешен:", {
+            usd: settings.rates.usdAtb,
+            eur: settings.rates.eurAtb,
+            cny: settings.rates.cnyAtb,
+            jpy: settings.rates.jpyAtb,
+            krw: settings.rates.krwAtb
+        });
+        
+        return true;
+    } catch(e) {
+        console.log("Ошибка парсинга АТБ:", e);
+        return false;
     }
+}
     
     async function parseKRWUSD() {
         try {
