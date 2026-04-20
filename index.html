@@ -34,7 +34,6 @@
         .rates-label { color: #7f8c8d; font-weight: 500; }
         .rates-value { font-weight: 600; color: #2c3e50; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
         .rates-value:hover { background: #e0e0e0; }
-        .rates-value input { width: 100px; padding: 4px 6px; border: 1px solid #3498db; border-radius: 8px; text-align: right; font-size: 0.8rem; }
         .admin-panel { display: none; margin-top: 16px; padding: 16px; background: #fef9e7; border-radius: 16px; border: 1px solid #f39c12; }
         .admin-panel.show { display: block; }
         .edit-rates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
@@ -49,12 +48,11 @@
         #mainContent { display: none; }
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 8px 16px; border-radius: 40px; font-size: 0.8rem; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
         .toast.show { opacity: 1; }
+        .status-bar { font-size: 0.7rem; color: #7f8c8d; text-align: center; margin-top: 8px; }
         @media (max-width: 480px) { .total-value { font-size: 1.4rem; } .age-btn { font-size: 0.7rem; padding: 8px 4px; } .rates-grid { grid-template-columns: 1fr; } }
         
-        /* Стили для форматирования цены */
         .price-input-wrapper { position: relative; }
-        .price-input-wrapper input { padding-right: 30px; }
-        .currency-symbol { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #7f8c8d; font-size: 0.85rem; pointer-events: none; }
+        .price-input-wrapper input { padding-right: 30px; text-align: right; }
     </style>
 </head>
 <body>
@@ -110,7 +108,8 @@
     <div class="card">
         <div class="card-title">📊 Курсы валют (нажмите на значение для редактирования)</div>
         <div class="rates-grid" id="ratesGrid"></div>
-        <button class="btn-secondary" onclick="updateAllRates()">🔄 Обновить все курсы (АТБ + Google)</button>
+        <button class="btn-secondary" onclick="updateAllRates()">🔄 Обновить все курсы</button>
+        <div id="updateStatus" class="status-bar"></div>
     </div>
     
     <div class="total">
@@ -149,7 +148,7 @@
         toast.textContent = message;
         toast.style.background = isError ? "#e74c3c" : "#333";
         toast.classList.add("show");
-        setTimeout(function() { toast.classList.remove("show"); }, 2000);
+        setTimeout(function() { toast.classList.remove("show"); }, 3000);
     }
     
     function checkAccessPassword() {
@@ -173,7 +172,7 @@
     // ==================== ФОРМАТИРОВАНИЕ ЦЕНЫ ====================
     function formatNumberWithSpaces(num) {
         if (num === undefined || num === null || isNaN(num)) return "0";
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
     }
     
     function parseFormattedNumber(str) {
@@ -181,7 +180,6 @@
         return parseFloat(str.replace(/\s/g, "")) || 0;
     }
     
-    // Обработчик ввода цены с пробелами
     var priceInput = document.getElementById("price");
     if (priceInput) {
         priceInput.addEventListener("input", function(e) {
@@ -294,7 +292,7 @@
             { label: "CNY (юань) → RUB:", key: "cnyAtb", suffix: " руб" },
             { label: "JPY (за 100 йен) → RUB:", key: "jpyAtb", suffix: " руб" },
             { label: "KRW (за 100 вон) → RUB:", key: "krwAtb", suffix: " руб" },
-            { label: "KRW → USD (Google):", key: "krwUsd", suffix: "" },
+            { label: "KRW → USD:", key: "krwUsd", suffix: "" },
             { label: "EUR (ЦБ РФ) для таможни:", key: "eurCb", suffix: " руб" }
         ];
         
@@ -352,15 +350,17 @@
         calculate();
     }
     
-    async function updateAllRates() {
-        showToast("Обновление курсов...", false);
-        
-        // Парсим курсы с АТБ
+    // ==================== ОБНОВЛЕНИЕ КУРСОВ (НЕСКОЛЬКО ИСТОЧНИКОВ) ====================
+    async function fetchWithCorsProxy(url) {
+        var proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+        var response = await fetch(proxyUrl);
+        var data = await response.json();
+        return data.contents;
+    }
+    
+    async function updateATBRates() {
         try {
-            var proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.atb.su/');
-            var response = await fetch(proxyUrl);
-            var data = await response.json();
-            var html = data.contents;
+            var html = await fetchWithCorsProxy('https://www.atb.su/');
             
             var usdMatch = html.match(/USD.*?продажа\s*([\d.]+)/i);
             if (usdMatch) settings.rates.usdAtb = parseFloat(usdMatch[1]);
@@ -376,38 +376,112 @@
             
             var krwMatch = html.match(/(?:KRW|Вон).*?продажа\s*([\d.]+)/i);
             if (krwMatch) settings.rates.krwAtb = parseFloat(krwMatch[1]);
-        } catch(e) { console.log("Ошибка парсинга АТБ"); }
-        
-        // Парсим KRW/USD с Google Finance
-        try {
-            var googleProxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.google.com/finance/quote/USD-KRW');
-            var googleResponse = await fetch(googleProxy);
-            var googleData = await googleResponse.json();
-            var googleHtml = googleData.contents;
             
-            // Ищем курс в разных форматах
-            var rateMatch = googleHtml.match(/data-last-price="([\d.]+)"/i);
-            if (rateMatch && rateMatch[1]) {
-                settings.rates.krwUsd = parseFloat(rateMatch[1]);
-            } else {
-                var altMatch = googleHtml.match(/\["USDKRW","[^"]*","([\d.]+)"/i);
-                if (altMatch && altMatch[1]) {
-                    settings.rates.krwUsd = parseFloat(altMatch[1]);
-                } else {
-                    var textMatch = googleHtml.match(/USD\/KRW.*?([\d.]+)/i);
-                    if (textMatch && textMatch[1]) {
-                        settings.rates.krwUsd = parseFloat(textMatch[1]);
+            return true;
+        } catch(e) {
+            console.log("Ошибка парсинга АТБ:", e);
+            return false;
+        }
+    }
+    
+    async function updateKRWUSDFromGoogle() {
+        try {
+            var html = await fetchWithCorsProxy('https://www.google.com/finance/quote/USD-KRW');
+            
+            var patterns = [
+                /data-last-price="([\d.]+)"/i,
+                /\["USDKRW","[^"]*","([\d.]+)"/i,
+                /USD\/KRW.*?([\d.]+)/i,
+                /"USDKRW","([\d.]+)"/i
+            ];
+            
+            for (var pattern of patterns) {
+                var match = html.match(pattern);
+                if (match && match[1]) {
+                    var rate = parseFloat(match[1]);
+                    if (rate > 800 && rate < 2000) {
+                        settings.rates.krwUsd = rate;
+                        return true;
                     }
                 }
             }
-            console.log("KRW/USD загружен:", settings.rates.krwUsd);
-        } catch(e) { console.log("Ошибка парсинга Google Finance", e); }
+            return false;
+        } catch(e) {
+            console.log("Ошибка парсинга Google:", e);
+            return false;
+        }
+    }
+    
+    async function updateKRWUSDFromExchangeAPI() {
+        try {
+            var response = await fetch('https://api.exchangerate-api.com/v4/latest/KRW');
+            var data = await response.json();
+            if (data.rates && data.rates.USD) {
+                settings.rates.krwUsd = data.rates.USD;
+                return true;
+            }
+            return false;
+        } catch(e) {
+            console.log("Ошибка Exchange API:", e);
+            return false;
+        }
+    }
+    
+    async function updateEURFromCBR() {
+        try {
+            var html = await fetchWithCorsProxy('https://www.cbr.ru/scripts/XML_daily.asp');
+            var match = html.match(/EUR.*?(\d+[\.,]\d+)/i);
+            if (match) {
+                var rate = parseFloat(match[1].replace(',', '.'));
+                if (rate > 50 && rate < 150) {
+                    settings.rates.eurCb = rate;
+                    return true;
+                }
+            }
+            return false;
+        } catch(e) {
+            console.log("Ошибка парсинга ЦБ:", e);
+            return false;
+        }
+    }
+    
+    var updateStatus = document.getElementById("updateStatus");
+    
+    async function updateAllRates() {
+        updateStatus.innerHTML = "⏳ Обновление курсов...";
+        updateStatus.style.color = "#3498db";
+        
+        var atbSuccess = await updateATBRates();
+        var krwUsdSuccess = false;
+        
+        // Пробуем Google, потом Exchange API
+        krwUsdSuccess = await updateKRWUSDFromGoogle();
+        if (!krwUsdSuccess) {
+            krwUsdSuccess = await updateKRWUSDFromExchangeAPI();
+        }
+        
+        var eurSuccess = await updateEURFromCBR();
         
         renderRates();
         renderAdminRates();
         saveSettings();
-        showToast("Курсы обновлены! KRW/USD: " + settings.rates.krwUsd.toFixed(2), false);
         calculate();
+        
+        var statusMessages = [];
+        if (atbSuccess) statusMessages.push("АТБ ✓");
+        else statusMessages.push("АТБ ✗");
+        
+        if (krwUsdSuccess) statusMessages.push("KRW/USD ✓");
+        else statusMessages.push("KRW/USD ✗ (исп. ручной)");
+        
+        if (eurSuccess) statusMessages.push("EUR ЦБ ✓");
+        else statusMessages.push("EUR ЦБ ✗");
+        
+        updateStatus.innerHTML = "📡 " + statusMessages.join(" | ");
+        updateStatus.style.color = krwUsdSuccess ? "#27ae60" : "#e74c3c";
+        
+        showToast("Курсы обновлены! KRW/USD: " + settings.rates.krwUsd.toFixed(2), false);
+        setTimeout(function() { updateStatus.innerHTML = ""; }, 5000);
     }
     
     function updateCountryHint() {
@@ -505,7 +579,7 @@
         var totalFixed = settings.fixedCosts.customsFee + utilFee + settings.fixedCosts.waycar;
         var totalRub = subtotal + customsRub + totalFixed;
         
-        document.getElementById("totalValue").innerHTML = formatNumberWithSpaces(Math.round(totalRub)) + " ₽";
+        document.getElementById("totalValue").innerHTML = formatNumberWithSpaces(totalRub) + " ₽";
         
         var ageText = age < 3 ? "младше 3 лет" : (age < 5 ? "от 3 до 5 лет" : "старше 5 лет");
         var countryName = {japan: "Япония", china: "Китай", korea: "Корея"}[country];
@@ -520,20 +594,20 @@
 "💰 1. СТОИМОСТЬ АВТОМОБИЛЯ:\n" +
 "   Цена: " + formatNumberWithSpaces(priceLocal) + " " + countryData.currencyName + "\n" +
 "   Конвертация: " + conversionDesc + "\n" +
-"   → " + formatNumberWithSpaces(Math.round(priceRub)) + " руб.\n\n" +
+"   → " + formatNumberWithSpaces(priceRub) + " руб.\n\n" +
 "🚢 2. РАСХОДЫ НА ДОСТАВКУ И ОФОРМЛЕНИЕ:\n" +
-"   " + formatNumberWithSpaces(countryData.localExpenses) + " " + countryData.currencyName + " → " + formatNumberWithSpaces(Math.round(localExpensesRub)) + " руб.\n\n" +
+"   " + formatNumberWithSpaces(countryData.localExpenses) + " " + countryData.currencyName + " → " + formatNumberWithSpaces(localExpensesRub) + " руб.\n\n" +
 "🏦 3. КОМИССИЯ БАНКА (1.5%, мин 10 000, макс 30 000 руб.):\n" +
-"   Сумма: " + formatNumberWithSpaces(Math.round(totalWithExpenses)) + " руб. × 1.5% = " + formatNumberWithSpaces(Math.round(bankCommission)) + " руб.\n\n" +
+"   Сумма: " + formatNumberWithSpaces(totalWithExpenses) + " руб. × 1.5% = " + formatNumberWithSpaces(bankCommission) + " руб.\n\n" +
 "📋 4. БРОКЕРСКИЕ РАСХОДЫ:\n" +
 "   → " + formatNumberWithSpaces(countryData.brokerFee) + " руб.\n\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-"📊 ПРОМЕЖУТОЧНАЯ СУММА: " + formatNumberWithSpaces(Math.round(subtotal)) + " руб.\n" +
+"📊 ПРОМЕЖУТОЧНАЯ СУММА: " + formatNumberWithSpaces(subtotal) + " руб.\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
 "🏛️ 5. ТАМОЖЕННАЯ ПОШЛИНА:\n" +
 "   Расчёт: " + customsDesc + "\n" +
-"   Стоимость для таможни: " + formatNumberWithSpaces(Math.round(priceForCustomsEur)) + " EUR\n" +
-"   Сумма: " + formatNumberWithSpaces(Math.round(customsEur)) + " EUR × " + rates.eurCb.toFixed(2) + " = " + formatNumberWithSpaces(Math.round(customsRub)) + " руб.\n\n" +
+"   Стоимость для таможни: " + formatNumberWithSpaces(priceForCustomsEur) + " EUR\n" +
+"   Сумма: " + formatNumberWithSpaces(customsEur) + " EUR × " + rates.eurCb.toFixed(2) + " = " + formatNumberWithSpaces(customsRub) + " руб.\n\n" +
 "📦 6. ПРОЧИЕ РАСХОДЫ:\n" +
 "   • Таможенный сбор:    " + formatNumberWithSpaces(settings.fixedCosts.customsFee) + " руб.\n" +
 "   • Утилизационный сбор: " + formatNumberWithSpaces(utilFee) + " руб.\n" +
@@ -542,7 +616,7 @@
 "   Итого прочие:          " + formatNumberWithSpaces(totalFixed) + " руб.\n\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
 "🎯 ИТОГОВАЯ СТОИМОСТЬ на дороге в РФ:\n\n" +
-"   " + formatNumberWithSpaces(Math.round(totalRub)) + " РУБЛЕЙ\n\n" +
+"   " + formatNumberWithSpaces(totalRub) + " РУБЛЕЙ\n\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
         
         document.getElementById("detailsContent").innerHTML = detailsText;
@@ -570,7 +644,7 @@
         }
     }
     
-    // ==================== ИНИЦИАЛИЗАЦИЯ СОБЫТИЙ ====================
+    // ==================== ИНИЦИАЛИЗАЦИЯ ====================
     document.querySelectorAll(".age-btn").forEach(function(btn) {
         btn.addEventListener("click", function() {
             document.querySelectorAll(".age-btn").forEach(function(b) { b.classList.remove("active"); });
