@@ -268,11 +268,13 @@
         try {
             var resp = await fetch('https://api.exchangerate-api.com/v4/latest/KRW');
             var data = await resp.json();
-            if (data.rates && data.rates.USD) settings.rates.krwUsd = data.rates.USD;
+            if (data.rates && data.rates.USD) {
+                settings.rates.krwUsd = data.rates.USD;
+                showToast("Курс KRW/USD обновлён: " + settings.rates.krwUsd.toFixed(2), false);
+            }
         } catch(e) { console.log("Ошибка обновления KRW/USD"); }
         renderRates();
         saveSettings();
-        showToast("Курсы обновлены!", false);
         calculate();
     }
     
@@ -281,7 +283,7 @@
         var hintMap = { 
             japan: "💡 Цену смотрите на аукционе USS или в инвойсе", 
             china: "💡 Цену смотрите на 1688, Taobao или в инвойсе", 
-            korea: "💡 На Encart найдите '판매가' (продажная цена)" 
+            korea: "💡 На Encart найдите '판매가' (продажная цена) и введите число вонах" 
         };
         document.getElementById("countryHint").innerHTML = hintMap[country] || "";
     }
@@ -320,7 +322,10 @@
     
     function calculate() {
         var country = document.getElementById("country").value;
-        if (!country) return;
+        if (!country) {
+            document.getElementById("totalValue").innerHTML = "0 ₽";
+            return;
+        }
         
         var priceLocal = parseFloat(document.getElementById("price").value) || 0;
         var volume = parseFloat(document.getElementById("volume").value) || 0;
@@ -341,12 +346,13 @@
         } else if (country === "china") {
             priceRub = priceLocal * rates.cnyAtb;
             conversionDesc = priceLocal.toLocaleString() + " юаней × " + rates.cnyAtb.toFixed(4);
-        } else {
+        } else { // Корея
             var usdAmount = priceLocal / rates.krwUsd;
             priceRub = usdAmount * rates.usdAtb;
-            conversionDesc = priceLocal.toLocaleString() + " вон ÷ " + rates.krwUsd.toFixed(2) + " = " + usdAmount.toFixed(2) + " USD × " + rates.usdAtb.toFixed(2);
+            conversionDesc = priceLocal.toLocaleString() + " вон ÷ " + rates.krwUsd.toFixed(2) + " = " + usdAmount.toFixed(2) + " USD × " + rates.usdAtb.toFixed(2) + " руб";
         }
         
+        // Местные расходы (доставка, аукцион, ПРР, СБКТС, СВХ)
         var localExpensesRub;
         if (country === "korea") {
             var usdExpenses = countryData.localExpenses / rates.krwUsd;
