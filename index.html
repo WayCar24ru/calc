@@ -49,8 +49,10 @@
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 8px 16px; border-radius: 40px; font-size: 0.8rem; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
         .toast.show { opacity: 1; }
         .status-bar { font-size: 0.7rem; color: #7f8c8d; text-align: center; margin-top: 8px; }
-        .manual-input { display: flex; gap: 8px; margin-top: 8px; }
-        .manual-input input { flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.75rem; }
+        .krw-input { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+        .krw-input input { flex: 2; padding: 8px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.8rem; }
+        .krw-input button { flex: 1; padding: 8px; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.8rem; }
+        .krw-input a { flex: 1; text-align: center; font-size: 0.7rem; color: #2980b9; text-decoration: none; }
         @media (max-width: 480px) { .total-value { font-size: 1.4rem; } .age-btn { font-size: 0.7rem; padding: 8px 4px; } .rates-grid { grid-template-columns: 1fr; } }
         
         .price-input-wrapper { position: relative; }
@@ -110,11 +112,14 @@
     <div class="card">
         <div class="card-title">📊 Курсы валют (нажмите на значение для редактирования)</div>
         <div class="rates-grid" id="ratesGrid"></div>
-        <button class="btn-secondary" onclick="updateAllRates()">🔄 Обновить курсы (АТБ + API)</button>
-        <div class="manual-input">
-            <input type="text" id="manualKrwUsd" placeholder="Вручную: KRW → USD (например: 1475)">
-            <button class="btn-secondary" style="margin-top: 0; padding: 6px 12px;" onclick="setManualKrwUsd()">Установить</button>
+        
+        <div class="krw-input">
+            <input type="text" id="manualKrwUsd" placeholder="Введите курс KRW → USD (например: 1475)">
+            <button onclick="setManualKrwUsd()">Установить курс</button>
+            <a href="https://finance.naver.com/marketindex/exchangeDetail.nhn?marketindexCd=FX_USDKRW" target="_blank">🔗 Актуальный курс на Naver</a>
         </div>
+        
+        <button class="btn-secondary" onclick="updateAllRates()">🔄 Обновить курсы (АТБ + API)</button>
         <div id="updateStatus" class="status-bar"></div>
     </div>
     
@@ -207,7 +212,7 @@
         });
     }
     
-    // ==================== НАСТРОЙКИ ====================
+    // ==================== НАСТРОЙКИ (ВЕРНЫЕ ЗНАЧЕНИЯ) ====================
     var settings = {
         countryCosts: {
             japan: { localExpenses: 220000, brokerFee: 27000, currencyName: "йен" },
@@ -215,13 +220,13 @@
             korea: { localExpenses: 2000000, brokerFee: 85000, currencyName: "вон" }
         },
         rates: {
-            usdAtb: 77.30,
-            eurAtb: 92.70,
-            cnyAtb: 11.40,
-            jpyAtb: 51.50,
-            krwAtb: 16.89,
-            krwUsd: 1475.0,
-            eurCb: 89.63
+            usdAtb: 77.72,    // ✅ верный курс USD (АТБ)
+            eurAtb: 92.70,    // ✅ верный курс EUR (АТБ)
+            cnyAtb: 11.40,    // ✅ верный курс CNY (АТБ)
+            jpyAtb: 51.50,    // ✅ верный курс JPY (АТБ)
+            krwAtb: 16.89,    // ✅ верный курс KRW (АТБ)
+            krwUsd: 1475.0,   // курс вон к доллару (можно менять)
+            eurCb: 89.63      // ✅ верный курс EUR (ЦБ)
         },
         fixedCosts: { customsFee: 1300, waycar: 60000 }
     };
@@ -313,7 +318,7 @@
             { label: "CNY (юань) → RUB:", key: "cnyAtb", suffix: " руб" },
             { label: "JPY (за 100 йен) → RUB:", key: "jpyAtb", suffix: " руб" },
             { label: "KRW (за 100 вон) → RUB:", key: "krwAtb", suffix: " руб" },
-            { label: "KRW → USD (API):", key: "krwUsd", suffix: "" },
+            { label: "KRW → USD:", key: "krwUsd", suffix: "" },
             { label: "EUR (ЦБ РФ) для таможни:", key: "eurCb", suffix: " руб" }
         ];
         
@@ -374,19 +379,11 @@
     // ==================== ПАРСИНГ КУРСОВ ====================
     var updateStatus = document.getElementById("updateStatus");
     
-    // Прямой парсинг АТБ (без прокси, с CORS-заголовками)
     async function parseATBRates() {
         try {
-            var response = await fetch('https://www.atb.su/', {
-                mode: 'cors',
-                headers: {
-                    'Accept': 'text/html,application/xhtml+xml',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
-            });
+            var response = await fetch('https://www.atb.su/');
             var html = await response.text();
             
-            // Поиск курсов в HTML (ищем нижнюю таблицу — последнее вхождение)
             var usdMatches = [...html.matchAll(/USD.*?продажа\s*([\d.]+)/gi)];
             if (usdMatches.length > 0) settings.rates.usdAtb = parseFloat(usdMatches[usdMatches.length - 1][1]);
             
@@ -404,12 +401,11 @@
             
             return true;
         } catch(e) {
-            console.log("Ошибка парсинга АТБ (CORS):", e);
+            console.log("Ошибка парсинга АТБ:", e);
             return false;
         }
     }
     
-    // Парсинг KRW/USD через API (работает всегда)
     async function parseKRWUSD() {
         try {
             var response = await fetch('https://api.exchangerate-api.com/v4/latest/KRW');
@@ -425,7 +421,6 @@
         }
     }
     
-    // Парсинг EUR ЦБ РФ
     async function parseEURCBR() {
         try {
             var response = await fetch('https://www.cbr.ru/scripts/XML_daily.asp');
@@ -449,11 +444,8 @@
         updateStatus.innerHTML = "⏳ Обновление курсов...";
         updateStatus.style.color = "#3498db";
         
-        // Парсим АТБ
         var atbOk = await parseATBRates();
-        // Парсим KRW/USD
         var krwUsdOk = await parseKRWUSD();
-        // Парсим EUR ЦБ
         var eurOk = await parseEURCBR();
         
         renderRates();
@@ -462,17 +454,17 @@
         calculate();
         
         var statusMessages = [];
-        statusMessages.push(atbOk ? "АТБ ✓" : "АТБ ✗ (CORS)");
+        statusMessages.push(atbOk ? "АТБ ✓" : "АТБ ✗");
         statusMessages.push(krwUsdOk ? "KRW/USD ✓" : "KRW/USD ✗");
         statusMessages.push(eurOk ? "EUR ЦБ ✓" : "EUR ЦБ ✗");
         
         updateStatus.innerHTML = "📡 " + statusMessages.join(" | ");
         updateStatus.style.color = krwUsdOk ? "#27ae60" : "#e74c3c";
         
-        if (atbOk) {
+        if (krwUsdOk) {
             showToast("Курсы обновлены! KRW/USD: " + settings.rates.krwUsd.toFixed(2), false);
         } else {
-            showToast("АТБ не обновился (CORS). Используйте ручной ввод для KRW/USD", true);
+            showToast("Не удалось обновить KRW/USD. Введите курс вручную.", true);
         }
         
         setTimeout(function() { updateStatus.innerHTML = ""; }, 5000);
