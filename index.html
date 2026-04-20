@@ -1,822 +1,806 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
-import requests
-import re
-import json
-import os
-import sys
-import threading
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Калькулятор растаможки авто | Япония, Корея, Китай</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            padding: 16px;
+            color: #2c3e50;
+        }
+        
+        .container {
+            max-width: 550px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 1.6rem;
+            margin: 0 0 5px 0;
+            color: #2c3e50;
+        }
+        
+        .header p {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            margin: 0;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 3px solid #3498db;
+            padding-left: 10px;
+        }
+        
+        .input-group {
+            margin-bottom: 14px;
+        }
+        
+        .input-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 5px;
+            color: #34495e;
+        }
+        
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px 14px;
+            font-size: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            background: white;
+            transition: border 0.2s;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .age-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .age-btn {
+            flex: 1;
+            padding: 10px 8px;
+            border: 1px solid #ddd;
+            background: #f8f9fa;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        
+        .age-btn.active {
+            background: #3498db;
+            border-color: #3498db;
+            color: white;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        .btn-primary {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #3498db;
+            color: white;
+            margin-top: 8px;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #3498db;
+            color: #3498db;
+        }
+        
+        .total {
+            text-align: center;
+            padding: 16px;
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            border-radius: 20px;
+            color: white;
+            margin-bottom: 12px;
+        }
+        
+        .total-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .total-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            word-break: break-word;
+        }
+        
+        .spoiler-btn {
+            background: #ecf0f1;
+            border: none;
+            padding: 10px;
+            width: 100%;
+            text-align: center;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        
+        .spoiler-content {
+            display: none;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #eee;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 12px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        
+        .spoiler-content.show {
+            display: block;
+        }
+        
+        .rates-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 0.8rem;
+        }
+        
+        .rates-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .rates-label {
+            color: #7f8c8d;
+        }
+        
+        .rates-value {
+            font-weight: 500;
+        }
+        
+        .admin-panel {
+            display: none;
+            margin-top: 16px;
+            padding: 16px;
+            background: #fef9e7;
+            border-radius: 16px;
+            border: 1px solid #f39c12;
+        }
+        
+        .admin-panel.show {
+            display: block;
+        }
+        
+        .edit-rates {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .edit-rates input {
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 0.8rem;
+        }
+        
+        .contacts {
+            text-align: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 16px;
+            margin-top: 16px;
+            font-size: 0.8rem;
+        }
+        
+        .contacts a {
+            color: #2980b9;
+            text-decoration: none;
+        }
+        
+        .hint {
+            font-size: 0.7rem;
+            color: #7f8c8d;
+            margin-top: 4px;
+        }
+        
+        .modal {
+            display: flex;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            width: 280px;
+            text-align: center;
+        }
+        
+        .modal-content input {
+            width: 100%;
+            padding: 12px;
+            margin: 12px 0;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            font-size: 1rem;
+        }
+        
+        .modal-content .error {
+            color: #e74c3c;
+            font-size: 0.8rem;
+            margin-top: -8px;
+            margin-bottom: 8px;
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 12px;
+            }
+            .total-value {
+                font-size: 1.4rem;
+            }
+            .age-btn {
+                font-size: 0.7rem;
+                padding: 8px 4px;
+            }
+        }
+        
+        #mainContent {
+            display: none;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
 
-# --- ФИКСИРОВАННЫЕ ПАРАМЕТРЫ ---
-FIXED_COSTS = {"customs_fee": 1300, "waycar": 60000}
+<div id="passwordModal" class="modal">
+    <div class="modal-content">
+        <div style="font-weight: bold; margin-bottom: 10px;">🔐 Введите пароль для доступа</div>
+        <input type="password" id="accessPassword" placeholder="Пароль" autofocus>
+        <div id="passwordError" class="error" style="display: none;">❌ Неверный пароль</div>
+        <button class="btn-primary" style="padding: 10px;" onclick="checkAccessPassword()">Войти</button>
+    </div>
+</div>
 
-# --- СТРАНЫ И ИХ ДОПОЛНИТЕЛЬНЫЕ РАСХОДЫ ---
-COUNTRY_COSTS_DEFAULT = {
-    "Япония": {
-        "local_expenses": 220000,
-        "broker_fee": 27000,
-        "currency": "JPY",
-        "currency_name": "йен",
-        "site_hint": "Цену смотрите на аукционе USS или в инвойсе"
-    },
-    "Корея": {
-        "local_expenses": 2000000,
-        "broker_fee": 85000,
-        "currency": "KRW",
-        "currency_name": "вон",
-        "site_hint": "На Encart найдите '판매가' (продажная цена) и введите число"
-    },
-    "Китай": {
-        "local_expenses": 12500,
-        "broker_fee": 65000,
-        "currency": "CNY",
-        "currency_name": "юаней",
-        "site_hint": "Цену смотрите на 1688, Taobao или в инвойсе"
+<div id="mainContent">
+<div class="container">
+    <div class="header">
+        <h1>🚗 Калькулятор растаможки</h1>
+        <p>Япония | Корея | Китай</p>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">📝 Параметры автомобиля</div>
+        
+        <div class="input-group">
+            <label>Страна ввоза</label>
+            <select id="country">
+                <option value="">— Выберите страну —</option>
+                <option value="japan">🇯🇵 Япония</option>
+                <option value="china">🇨🇳 Китай</option>
+                <option value="korea">🇰🇷 Корея</option>
+            </select>
+            <div class="hint" id="countryHint"></div>
+        </div>
+        
+        <div class="input-group">
+            <label>Цена покупки (в валюте страны)</label>
+            <input type="number" id="price" placeholder="Введите число" step="1" value="0">
+        </div>
+        
+        <div class="input-group">
+            <label>Объём двигателя (см³)</label>
+            <input type="number" id="volume" placeholder="например: 1998" step="1" value="0">
+        </div>
+        
+        <div class="input-group">
+            <label>Возраст автомобиля</label>
+            <div class="age-buttons">
+                <div class="age-btn" data-age="1">🆕 Младше 3 лет</div>
+                <div class="age-btn" data-age="3">🟡 От 3 до 5 лет</div>
+                <div class="age-btn" data-age="5">🔵 Старше 5 лет</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title" style="cursor: pointer;" onclick="toggleRates()">
+            📊 Курсы валют <span id="ratesToggleIcon">▶</span>
+        </div>
+        <div id="ratesContent" style="display: none;">
+            <div class="rates-grid" id="ratesGrid"></div>
+            <button class="btn-secondary" style="margin-top: 12px; padding: 8px;" onclick="updateAllRates()">🔄 Обновить курсы</button>
+        </div>
+    </div>
+    
+    <div class="total">
+        <div class="total-label">💰 ИТОГОВАЯ СТОИМОСТЬ</div>
+        <div class="total-value" id="totalValue">0 ₽</div>
+    </div>
+    
+    <button class="spoiler-btn" onclick="toggleDetails()" id="detailsBtn">▶ Показать подробный расчёт</button>
+    <div id="detailsContent" class="spoiler-content"></div>
+    
+    <div id="adminPanel" class="admin-panel">
+        <div class="card-title" style="border-left-color: #f39c12;">👑 Админ-панель</div>
+        <div id="adminRates"></div>
+        <button class="btn-primary" style="background: #27ae60; margin-top: 12px;" onclick="saveAdminSettings()">💾 Сохранить настройки</button>
+    </div>
+    
+    <button class="btn-outline" onclick="showAdminPassword()" style="margin-top: 8px;">👑 Admin</button>
+    
+    <div class="contacts">
+        <div>📢 Хотите заказать автомобиль?</div>
+        <div>🇯🇵 Япония | 🇰🇷 Корея | 🇨🇳 Китай</div>
+        <div>📱 Telegram: <a href="https://t.me/autozakaz_jpn_korea" target="_blank">@autozakaz_jpn_korea</a></div>
+        <div>📞 Телефон: <a href="tel:+79832703501">+7 (983) 270-35-01</a></div>
+    </div>
+</div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+    // ==================== ЗАЩИТА ПАРОЛЕМ ====================
+    var ACCESS_PASSWORD = "1";
+    
+    function showToast(message, isError = false) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.style.background = isError ? "#e74c3c" : "#333";
+        toast.classList.add("show");
+        setTimeout(() => {
+            toast.classList.remove("show");
+        }, 2000);
     }
-}
-
-# --- КУРСЫ ПО УМОЛЧАНИЮ ---
-DEFAULT_RATES = {
-    "usd_atb": 77.72,     # USD → RUB (АТБ)
-    "eur_atb": 92.70,     # EUR → RUB (АТБ)
-    "cny_atb": 11.40,     # CNY → RUB
-    "jpy_atb": 51.50,     # JPY за 100 → RUB
-    "krw_atb": 16.89,     # KRW за 100 → RUB
-    "krw_usd": 1450.0,    # KRW → USD
-    "eur_cb": 89.63       # EUR (ЦБ) для таможни
-}
-
-UTIL_FEE = {"new": 3000, "old": 5200}
-SETTINGS_FILE = "car_calc_settings.txt"
-RATES_FILE = "car_calc_rates.txt"
-
-class CarCostCalculator:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Калькулятор растаможки авто из Японии, Кореи, Китая")
-        self.root.geometry("780x950")
-        self.root.minsize(500, 600)
-        self.root.resizable(True, True)
-
-        self.country_costs = self.load_settings()
-        self.rates = self.load_rates()
-
-        # Переменные для курсов
-        self.usd_rate_atb = tk.DoubleVar(value=self.rates.get("usd_atb", DEFAULT_RATES["usd_atb"]))
-        self.eur_rate_atb = tk.DoubleVar(value=self.rates.get("eur_atb", DEFAULT_RATES["eur_atb"]))
-        self.cny_rate_atb = tk.DoubleVar(value=self.rates.get("cny_atb", DEFAULT_RATES["cny_atb"]))
-        self.jpy_rate_atb = tk.DoubleVar(value=self.rates.get("jpy_atb", DEFAULT_RATES["jpy_atb"]))
-        self.krw_rate_atb = tk.DoubleVar(value=self.rates.get("krw_atb", DEFAULT_RATES["krw_atb"]))
-        self.krw_to_usd_rate = tk.DoubleVar(value=self.rates.get("krw_usd", DEFAULT_RATES["krw_usd"]))
-        self.eur_rate_cb = tk.DoubleVar(value=self.rates.get("eur_cb", DEFAULT_RATES["eur_cb"]))
-
-        self.selected_country = tk.StringVar(value="")
-        self.car_age = tk.IntVar(value=2)
-
-        # Создаём основной контейнер с прокруткой
-        self.main_canvas = tk.Canvas(self.root)
-        self.scrollbar = tk.Scrollbar(self.root, orient="vertical", command=self.main_canvas.yview)
-        self.scrollable_frame = tk.Frame(self.main_canvas)
-
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
-        )
-
-        self.main_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.main_canvas.configure(yscrollcommand=self.scrollbar.set)
-
-        self.main_canvas.bind("<MouseWheel>", self._on_mousewheel)
-        self.main_canvas.bind("<Button-4>", self._on_mousewheel)
-        self.main_canvas.bind("<Button-5>", self._on_mousewheel)
-
-        def _configure_canvas(event):
-            self.main_canvas.itemconfig("all", width=event.width)
-
-        self.main_canvas.bind("<Configure>", _configure_canvas)
-
-        self.main_canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-
-        self.main_canvas.focus_set()
-
-        self.create_widgets()
-
-        self.status_label.config(text="Загрузка курсов...")
-        thread = threading.Thread(target=self.update_all_rates)
-        thread.daemon = True
-        thread.start()
-
-    def load_settings(self):
-        try:
-            with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                for country in COUNTRY_COSTS_DEFAULT:
-                    if country not in data:
-                        data[country] = COUNTRY_COSTS_DEFAULT[country].copy()
-                return data
-        except:
-            return {
-                "Япония": COUNTRY_COSTS_DEFAULT["Япония"].copy(),
-                "Корея": COUNTRY_COSTS_DEFAULT["Корея"].copy(),
-                "Китай": COUNTRY_COSTS_DEFAULT["Китай"].copy()
+    
+    function checkAccessPassword() {
+        var pwd = document.getElementById("accessPassword").value;
+        if (pwd === ACCESS_PASSWORD) {
+            document.getElementById("passwordModal").style.display = "none";
+            document.getElementById("mainContent").style.display = "block";
+            loadSettings();
+            calculate();
+        } else {
+            document.getElementById("passwordError").style.display = "block";
+            document.getElementById("accessPassword").value = "";
+            document.getElementById("accessPassword").focus();
+        }
+    }
+    
+    document.getElementById("accessPassword").addEventListener("keypress", function(e) {
+        if (e.key === "Enter") checkAccessPassword();
+    });
+    
+    // ==================== НАСТРОЙКИ ====================
+    let settings = {
+        countryCosts: {
+            japan: { localExpenses: 220000, brokerFee: 27000, currencyName: "йен" },
+            china: { localExpenses: 12500, brokerFee: 65000, currencyName: "юаней" },
+            korea: { localExpenses: 2000000, brokerFee: 85000, currencyName: "вон" }
+        },
+        rates: {
+            usdAtb: 77.72,     // USD → RUB (АТБ)
+            eurAtb: 92.70,     // EUR → RUB (АТБ)
+            cnyAtb: 11.40,     // CNY → RUB
+            jpyAtb: 51.50,     // JPY за 100 → RUB
+            krwAtb: 16.89,     // KRW за 100 → RUB
+            krwUsd: 1450.0,    // KRW → USD
+            eurCb: 89.63       // EUR (ЦБ) для таможни
+        },
+        fixedCosts: {
+            customsFee: 1300,
+            waycar: 60000
+        }
+    };
+    
+    let currentAge = 2;
+    
+    function loadSettings() {
+        const saved = localStorage.getItem("carCalcSettings");
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                if (data.countryCosts) settings.countryCosts = data.countryCosts;
+                if (data.rates) settings.rates = data.rates;
+                if (data.fixedCosts) settings.fixedCosts = data.fixedCosts;
+            } catch(e) {}
+        }
+        renderRates();
+        renderAdminRates();
+        updateCountryHint();
+    }
+    
+    function saveSettings() {
+        localStorage.setItem("carCalcSettings", JSON.stringify({
+            countryCosts: settings.countryCosts,
+            rates: settings.rates,
+            fixedCosts: settings.fixedCosts
+        }));
+    }
+    
+    function renderRates() {
+        const grid = document.getElementById("ratesGrid");
+        if (!grid) return;
+        grid.innerHTML = `
+            <div class="rates-item"><span class="rates-label">USD → RUB (АТБ):</span><span class="rates-value">${settings.rates.usdAtb.toFixed(2)} руб</span></div>
+            <div class="rates-item"><span class="rates-label">EUR → RUB (АТБ):</span><span class="rates-value">${settings.rates.eurAtb.toFixed(2)} руб</span></div>
+            <div class="rates-item"><span class="rates-label">CNY (юань) → RUB:</span><span class="rates-value">${settings.rates.cnyAtb.toFixed(2)} руб</span></div>
+            <div class="rates-item"><span class="rates-label">JPY (за 100 йен) → RUB:</span><span class="rates-value">${settings.rates.jpyAtb.toFixed(2)} руб</span></div>
+            <div class="rates-item"><span class="rates-label">KRW (за 100 вон) → RUB:</span><span class="rates-value">${settings.rates.krwAtb.toFixed(2)} руб</span></div>
+            <div class="rates-item"><span class="rates-label">KRW → USD:</span><span class="rates-value">${settings.rates.krwUsd.toFixed(2)}</span></div>
+            <div class="rates-item"><span class="rates-label">EUR (ЦБ РФ) для таможни:</span><span class="rates-value">${settings.rates.eurCb.toFixed(2)} руб</span></div>
+        `;
+    }
+    
+    function renderAdminRates() {
+        const container = document.getElementById("adminRates");
+        if (!container) return;
+        container.innerHTML = `
+            <div class="edit-rates">
+                <label>USD (АТБ):</label>
+                <input type="number" id="admin_usdAtb" step="0.01" value="${settings.rates.usdAtb}">
+                <label>EUR (АТБ):</label>
+                <input type="number" id="admin_eurAtb" step="0.01" value="${settings.rates.eurAtb}">
+                <label>CNY (юань):</label>
+                <input type="number" id="admin_cnyAtb" step="0.01" value="${settings.rates.cnyAtb}">
+                <label>JPY (за 100):</label>
+                <input type="number" id="admin_jpyAtb" step="0.01" value="${settings.rates.jpyAtb}">
+                <label>KRW (за 100):</label>
+                <input type="number" id="admin_krwAtb" step="0.01" value="${settings.rates.krwAtb}">
+                <label>KRW → USD:</label>
+                <input type="number" id="admin_krwUsd" step="0.01" value="${settings.rates.krwUsd}">
+                <label>EUR (ЦБ):</label>
+                <input type="number" id="admin_eurCb" step="0.01" value="${settings.rates.eurCb}">
+            </div>
+            <div style="margin-top: 12px; font-weight: bold;">📦 Расходы по странам</div>
+            <div class="edit-rates">
+                <label>Япония (доставка):</label>
+                <input type="number" id="admin_japanExpenses" value="${settings.countryCosts.japan.localExpenses}">
+                <label>Япония (брокер):</label>
+                <input type="number" id="admin_japanBroker" value="${settings.countryCosts.japan.brokerFee}">
+                <label>Китай (доставка):</label>
+                <input type="number" id="admin_chinaExpenses" value="${settings.countryCosts.china.localExpenses}">
+                <label>Китай (брокер):</label>
+                <input type="number" id="admin_chinaBroker" value="${settings.countryCosts.china.brokerFee}">
+                <label>Корея (доставка):</label>
+                <input type="number" id="admin_koreaExpenses" value="${settings.countryCosts.korea.localExpenses}">
+                <label>Корея (брокер):</label>
+                <input type="number" id="admin_koreaBroker" value="${settings.countryCosts.korea.brokerFee}">
+            </div>
+        `;
+    }
+    
+    function saveAdminSettings() {
+        settings.rates.usdAtb = parseFloat(document.getElementById("admin_usdAtb").value) || settings.rates.usdAtb;
+        settings.rates.eurAtb = parseFloat(document.getElementById("admin_eurAtb").value) || settings.rates.eurAtb;
+        settings.rates.cnyAtb = parseFloat(document.getElementById("admin_cnyAtb").value) || settings.rates.cnyAtb;
+        settings.rates.jpyAtb = parseFloat(document.getElementById("admin_jpyAtb").value) || settings.rates.jpyAtb;
+        settings.rates.krwAtb = parseFloat(document.getElementById("admin_krwAtb").value) || settings.rates.krwAtb;
+        settings.rates.krwUsd = parseFloat(document.getElementById("admin_krwUsd").value) || settings.rates.krwUsd;
+        settings.rates.eurCb = parseFloat(document.getElementById("admin_eurCb").value) || settings.rates.eurCb;
+        
+        settings.countryCosts.japan.localExpenses = parseFloat(document.getElementById("admin_japanExpenses").value) || settings.countryCosts.japan.localExpenses;
+        settings.countryCosts.japan.brokerFee = parseFloat(document.getElementById("admin_japanBroker").value) || settings.countryCosts.japan.brokerFee;
+        settings.countryCosts.china.localExpenses = parseFloat(document.getElementById("admin_chinaExpenses").value) || settings.countryCosts.china.localExpenses;
+        settings.countryCosts.china.brokerFee = parseFloat(document.getElementById("admin_chinaBroker").value) || settings.countryCosts.china.brokerFee;
+        settings.countryCosts.korea.localExpenses = parseFloat(document.getElementById("admin_koreaExpenses").value) || settings.countryCosts.korea.localExpenses;
+        settings.countryCosts.korea.brokerFee = parseFloat(document.getElementById("admin_koreaBroker").value) || settings.countryCosts.korea.brokerFee;
+        
+        saveSettings();
+        renderRates();
+        showToast("Настройки сохранены!");
+        calculate();
+    }
+    
+    async function updateAllRates() {
+        showToast("Обновление курсов...");
+        try {
+            const response = await fetch('https://www.cbr.ru/scripts/XML_daily.asp');
+            const text = await response.text();
+            const match = text.match(/EUR.*?(\d+[\.,]\d+)/);
+            if (match) {
+                const rate = parseFloat(match[1].replace(',', '.'));
+                if (rate > 50 && rate < 150) settings.rates.eurCb = rate;
             }
-
-    def save_settings(self):
-        try:
-            with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
-                json.dump(self.country_costs, f, ensure_ascii=False, indent=2)
-            return True
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось сохранить настройки:\n{e}")
-            return False
-
-    def load_rates(self):
-        try:
-            with open(RATES_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return DEFAULT_RATES.copy()
-
-    def save_rates(self):
-        try:
-            rates = {
-                "usd_atb": self.usd_rate_atb.get(),
-                "eur_atb": self.eur_rate_atb.get(),
-                "cny_atb": self.cny_rate_atb.get(),
-                "jpy_atb": self.jpy_rate_atb.get(),
-                "krw_atb": self.krw_rate_atb.get(),
-                "krw_usd": self.krw_to_usd_rate.get(),
-                "eur_cb": self.eur_rate_cb.get()
-            }
-            with open(RATES_FILE, 'w', encoding='utf-8') as f:
-                json.dump(rates, f, ensure_ascii=False, indent=2)
-            return True
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось сохранить курсы:\n{e}")
-            return False
-
-    def edit_rates(self):
-        rates_window = tk.Toplevel(self.root)
-        rates_window.title("Редактирование курсов валют")
-        rates_window.geometry("450x400")
-        rates_window.resizable(False, False)
+        } catch(e) {}
         
-        tk.Label(rates_window, text="Ручное редактирование курсов валют", 
-                 font=("Arial", 12, "bold")).pack(pady=10)
+        try {
+            const resp = await fetch('https://api.exchangerate-api.com/v4/latest/KRW');
+            const data = await resp.json();
+            if (data.rates && data.rates.USD) settings.rates.krwUsd = data.rates.USD;
+        } catch(e) {}
         
-        frame = tk.Frame(rates_window)
-        frame.pack(pady=10, padx=20, fill="both", expand=True)
+        renderRates();
+        saveSettings();
+        showToast("Курсы обновлены!");
+        calculate();
+    }
+    
+    function updateCountryHint() {
+        const country = document.getElementById("country").value;
+        const hintMap = {
+            japan: "💡 Цену смотрите на аукционе USS или в инвойсе",
+            china: "💡 Цену смотрите на 1688, Taobao или в инвойсе",
+            korea: "💡 На Encart найдите '판매가' (продажная цена)"
+        };
+        document.getElementById("countryHint").innerHTML = hintMap[country] || "";
+    }
+    
+    function getCustomsRate(priceEur, volume, age) {
+        if (age < 3) {
+            let ratePerCm, percent;
+            if (priceEur < 8500) { ratePerCm = 2.5; percent = 54; }
+            else if (priceEur <= 16700) { ratePerCm = 3.5; percent = 48; }
+            else if (priceEur <= 42300) { ratePerCm = 5.5; percent = 48; }
+            else if (priceEur <= 84500) { ratePerCm = 7.5; percent = 48; }
+            else if (priceEur <= 169000) { ratePerCm = 15.0; percent = 48; }
+            else { ratePerCm = 20.0; percent = 48; }
+            return Math.max(priceEur * percent / 100, volume * ratePerCm);
+        } else if (age < 5) {
+            if (volume <= 1000) return volume * 1.5;
+            else if (volume <= 1500) return volume * 1.7;
+            else if (volume <= 1800) return volume * 2.5;
+            else if (volume <= 2300) return volume * 2.7;
+            else if (volume <= 3000) return volume * 3.0;
+            else return volume * 3.6;
+        } else {
+            if (volume <= 1000) return volume * 3.0;
+            else if (volume <= 1500) return volume * 3.2;
+            else if (volume <= 1800) return volume * 3.5;
+            else if (volume <= 2300) return volume * 4.8;
+            else if (volume <= 3000) return volume * 5.0;
+            else return volume * 5.7;
+        }
+    }
+    
+    function calculateBankCommission(amountRub) {
+        let commission = amountRub * 0.015;
+        return Math.max(10000, Math.min(commission, 30000));
+    }
+    
+    function calculate() {
+        const country = document.getElementById("country").value;
+        if (!country) return;
         
-        temp_vars = {}
+        let priceLocal = parseFloat(document.getElementById("price").value) || 0;
+        let volume = parseFloat(document.getElementById("volume").value) || 0;
         
-        rates_list = [
-            ("USD → RUB (АТБ):", self.usd_rate_atb, "usd_atb"),
-            ("EUR → RUB (АТБ):", self.eur_rate_atb, "eur_atb"),
-            ("CNY (юань) → RUB:", self.cny_rate_atb, "cny_atb"),
-            ("JPY (за 100 йен) → RUB:", self.jpy_rate_atb, "jpy_atb"),
-            ("KRW (за 100 вон) → RUB:", self.krw_rate_atb, "krw_atb"),
-            ("KRW → USD:", self.krw_to_usd_rate, "krw_usd"),
-            ("EUR (ЦБ РФ) для таможни:", self.eur_rate_cb, "eur_cb"),
-        ]
+        if (priceLocal <= 0 || volume <= 0) {
+            document.getElementById("totalValue").innerHTML = "0 ₽";
+            return;
+        }
         
-        for i, (text, var, key) in enumerate(rates_list):
-            tk.Label(frame, text=text, anchor="e", justify="right").grid(row=i, column=0, sticky="e", padx=5, pady=5)
-            entry_var = tk.StringVar(value=str(var.get()))
-            temp_vars[key] = entry_var
-            tk.Entry(frame, textvariable=entry_var, width=15).grid(row=i, column=1, sticky="w", padx=5, pady=5)
-            tk.Label(frame, text="руб").grid(row=i, column=2, sticky="w", padx=5)
+        const age = currentAge;
+        const countryData = settings.countryCosts[country];
+        const rates = settings.rates;
         
-        def save_rates_changes():
-            try:
-                self.usd_rate_atb.set(float(temp_vars["usd_atb"].get()))
-                self.eur_rate_atb.set(float(temp_vars["eur_atb"].get()))
-                self.cny_rate_atb.set(float(temp_vars["cny_atb"].get()))
-                self.jpy_rate_atb.set(float(temp_vars["jpy_atb"].get()))
-                self.krw_rate_atb.set(float(temp_vars["krw_atb"].get()))
-                self.krw_to_usd_rate.set(float(temp_vars["krw_usd"].get()))
-                self.eur_rate_cb.set(float(temp_vars["eur_cb"].get()))
-                
-                self.save_rates()
-                messagebox.showinfo("Успех", "Курсы сохранены!")
-                rates_window.destroy()
-                self.calculate()
-            except ValueError:
-                messagebox.showerror("Ошибка", "Введите корректные числа!")
+        let priceRub, conversionDesc;
+        if (country === "japan") {
+            priceRub = priceLocal * (rates.jpyAtb / 100);
+            conversionDesc = `${priceLocal.toLocaleString()} йен × ${(rates.jpyAtb/100).toFixed(4)}`;
+        } else if (country === "china") {
+            priceRub = priceLocal * rates.cnyAtb;
+            conversionDesc = `${priceLocal.toLocaleString()} юаней × ${rates.cnyAtb.toFixed(4)}`;
+        } else { // Корея: воны → доллары → рубли
+            const usdAmount = priceLocal / rates.krwUsd;
+            priceRub = usdAmount * rates.usdAtb;
+            conversionDesc = `${priceLocal.toLocaleString()} вон ÷ ${rates.krwUsd.toFixed(2)} = ${usdAmount.toFixed(2)} USD × ${rates.usdAtb.toFixed(2)}`;
+        }
         
-        btn_frame = tk.Frame(rates_window)
-        btn_frame.pack(pady=20)
+        let localExpensesRub;
+        if (country === "korea") {
+            const usdExpenses = countryData.localExpenses / rates.krwUsd;
+            localExpensesRub = usdExpenses * rates.usdAtb;
+        } else {
+            const localToRub = country === "japan" ? rates.jpyAtb/100 : rates.cnyAtb;
+            localExpensesRub = countryData.localExpenses * localToRub;
+        }
         
-        tk.Button(btn_frame, text="💾 Сохранить", command=save_rates_changes,
-                  bg="#27ae60", fg="white", padx=20, pady=5, font=("Arial", 10, "bold")).pack(side="left", padx=10)
-        tk.Button(btn_frame, text="❌ Отмена", command=rates_window.destroy,
-                  bg="#e74c3c", fg="white", padx=20, pady=5, font=("Arial", 10, "bold")).pack(side="left", padx=10)
-
-    def admin_panel(self):
-        password = simpledialog.askstring("Админ-панель", "Введите пароль:", show='*')
-        if password != "100498":
-            messagebox.showerror("Ошибка", "Неверный пароль!")
-            return
-
-        admin_window = tk.Toplevel(self.root)
-        admin_window.title("Админ-панель - настройка расходов")
-        admin_window.geometry("550x600")
-        admin_window.resizable(False, False)
-
-        tk.Label(admin_window, text="Настройка дополнительных расходов по странам",
-                 font=("Arial", 12, "bold")).pack(pady=10)
-
-        canvas = tk.Canvas(admin_window)
-        scrollbar = tk.Scrollbar(admin_window, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas)
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-        scrollbar.pack(side="right", fill="y")
-
-        self.admin_vars = {}
-
-        for country in ["Япония", "Китай", "Корея"]:
-            country_frame = tk.LabelFrame(scrollable_frame, text=country, font=("Arial", 10, "bold"), padx=10, pady=5)
-            country_frame.pack(fill="x", pady=5)
-
-            tk.Label(country_frame, text="Расходы на доставку и оформление:").grid(row=0, column=0, sticky="e", padx=5, pady=5)
-            var = tk.StringVar(value=str(self.country_costs[country]["local_expenses"]))
-            self.admin_vars[f"{country}_expenses"] = var
-            tk.Entry(country_frame, textvariable=var, width=15).grid(row=0, column=1, sticky="w", padx=5, pady=5)
-            tk.Label(country_frame, text=self.country_costs[country]["currency_name"]).grid(row=0, column=2, sticky="w", padx=5)
-
-            tk.Label(country_frame, text="Брокерские расходы (руб):").grid(row=1, column=0, sticky="e", padx=5, pady=5)
-            var2 = tk.StringVar(value=str(self.country_costs[country]["broker_fee"]))
-            self.admin_vars[f"{country}_broker"] = var2
-            tk.Entry(country_frame, textvariable=var2, width=15).grid(row=1, column=1, sticky="w", padx=5, pady=5)
-            tk.Label(country_frame, text="руб").grid(row=1, column=2, sticky="w", padx=5)
-
-        btn_frame = tk.Frame(admin_window)
-        btn_frame.pack(pady=20)
-
-        def save_changes():
-            try:
-                for country in ["Япония", "Китай", "Корея"]:
-                    new_expenses = int(self.admin_vars[f"{country}_expenses"].get())
-                    new_broker = int(self.admin_vars[f"{country}_broker"].get())
-                    if new_expenses <= 0 or new_broker < 0:
-                        raise ValueError("Значения должны быть положительными")
-                    self.country_costs[country]["local_expenses"] = new_expenses
-                    self.country_costs[country]["broker_fee"] = new_broker
-
-                self.save_settings()
-                messagebox.showinfo("Успех", "Настройки сохранены!\nПрограмма будет перезапущена.")
-                admin_window.destroy()
-                os.execl(sys.executable, sys.executable, *sys.argv)
-
-            except ValueError as e:
-                messagebox.showerror("Ошибка", f"Введите корректные числа:\n{e}")
-
-        tk.Button(btn_frame, text="💾 Сохранить", command=save_changes,
-                  bg="#27ae60", fg="white", padx=20, pady=5, font=("Arial", 10, "bold")).pack(side="left", padx=10)
-        tk.Button(btn_frame, text="❌ Отмена", command=admin_window.destroy,
-                  bg="#e74c3c", fg="white", padx=20, pady=5, font=("Arial", 10, "bold")).pack(side="left", padx=10)
-
-    def show_rates_table(self):
-        rates_window = tk.Toplevel(self.root)
-        rates_window.title("Таблица таможенных ставок")
-        rates_window.geometry("650x600")
-        rates_window.resizable(False, False)
-
-        canvas = tk.Canvas(rates_window)
-        scrollbar = tk.Scrollbar(rates_window, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas)
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        tk.Label(scrollable_frame, text="ТАМОЖЕННЫЕ СТАВКИ ДЛЯ ФИЗИЧЕСКИХ ЛИЦ",
-                 font=("Arial", 14, "bold"), fg="#2c3e50").pack(pady=10)
-
-        # Таблицы (упрощённо, можно добавить позже)
-        tk.Label(scrollable_frame, text="📋 Полная таблица ставок доступна в HTML-версии", font=("Arial", 10)).pack(pady=20)
+        const totalWithExpenses = priceRub + localExpensesRub;
+        const bankCommission = calculateBankCommission(totalWithExpenses);
+        const subtotal = totalWithExpenses + bankCommission + countryData.brokerFee;
         
-        tk.Button(scrollable_frame, text="Закрыть", command=rates_window.destroy,
-                  bg="#3498db", fg="white", padx=20, pady=5).pack(pady=10)
-
-    def copy_details_to_clipboard(self):
-        details_text = self.details_text.get("1.0", tk.END).strip()
-        if details_text:
-            self.root.clipboard_clear()
-            self.root.clipboard_append(details_text)
-            messagebox.showinfo("Успех", "Подробный расчёт скопирован в буфер обмена!")
-        else:
-            messagebox.showwarning("Внимание", "Сначала выполните расчёт!")
-
-    def _on_mousewheel(self, event):
-        if event.delta:
-            self.main_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        elif event.num == 4:
-            self.main_canvas.yview_scroll(-1, "units")
-        elif event.num == 5:
-            self.main_canvas.yview_scroll(1, "units")
-
-    def create_context_menu(self, widget):
-        menu = tk.Menu(widget, tearoff=0)
-        menu.add_command(label="Вставить", command=lambda: widget.event_generate("<<Paste>>"))
-        menu.add_command(label="Копировать", command=lambda: widget.event_generate("<<Copy>>"))
-        menu.add_command(label="Вырезать", command=lambda: widget.event_generate("<<Cut>>"))
-        menu.add_separator()
-        menu.add_command(label="Очистить", command=lambda: widget.delete(0, tk.END))
-        def show_menu(event):
-            menu.post(event.x_root, event.y_root)
-        widget.bind("<Button-3>", show_menu)
-        return menu
-
-    def create_widgets(self):
-        main_frame = self.scrollable_frame
-
-        top_frame = tk.Frame(main_frame)
-        top_frame.pack(fill="x", pady=5, padx=10)
-
-        tk.Label(top_frame, text="🚗 КАЛЬКУЛЯТОР РАСТАМОЖКИ АВТО",
-                 font=("Arial", 14, "bold"), fg="#2c3e50").pack(side="left", expand=True)
-
-        rates_btn = tk.Button(top_frame, text="📊 Редактировать курсы", command=self.edit_rates,
-                              bg="#9b59b6", fg="white", font=("Arial", 9, "bold"), padx=10)
-        rates_btn.pack(side="right", padx=5)
-
-        admin_btn = tk.Button(top_frame, text="👑 Admin", command=self.admin_panel,
-                               bg="#f39c12", fg="white", font=("Arial", 9, "bold"), padx=10)
-        admin_btn.pack(side="right")
-
-        tk.Label(main_frame, text="Автомобили из Японии, Кореи, Китая",
-                 font=("Arial", 10), fg="#7f8c8d").pack(fill="x")
-
-        # --- Блок курсов валют ---
-        self.rates_frame = tk.LabelFrame(main_frame, text="📊 Курсы валют (нажмите + для просмотра)",
-                                          font=("Arial", 9, "bold"), padx=5, pady=5)
-        self.rates_frame.pack(fill="x", padx=10, pady=5)
-
-        self.rates_btn = tk.Button(self.rates_frame, text="▶", command=self.toggle_rates,
-                                    width=3, height=1, font=("Arial", 8))
-        self.rates_btn.pack(anchor="w")
-
-        self.rates_content = tk.Frame(self.rates_frame)
-        rates_grid = tk.Frame(self.rates_content)
-        rates_grid.pack(pady=5, fill="x")
-
-        labels = [
-            ("USD → RUB (АТБ):", self.usd_rate_atb, "#f0f0f0"),
-            ("EUR → RUB (АТБ):", self.eur_rate_atb, "#f0f0f0"),
-            ("CNY (юань) → RUB:", self.cny_rate_atb, "white"),
-            ("JPY (за 100 йен) → RUB:", self.jpy_rate_atb, "white"),
-            ("KRW (за 100 вон) → RUB:", self.krw_rate_atb, "white"),
-            ("KRW → USD:", self.krw_to_usd_rate, "#f0f0f0"),
-            ("EUR (ЦБ РФ) для таможни:", self.eur_rate_cb, "lightyellow"),
-        ]
-
-        for i, (text, var, bg) in enumerate(labels):
-            tk.Label(rates_grid, text=text, anchor="e", justify="right").grid(row=i, column=0, sticky="e", padx=5, pady=2)
-            tk.Label(rates_grid, textvariable=var, width=14, relief="sunken", bg=bg, anchor="w").grid(row=i, column=1, sticky="w", padx=5, pady=2)
-
-        # --- Параметры авто ---
-        input_frame = tk.LabelFrame(main_frame, text="📝 Параметры автомобиля", font=("Arial", 10, "bold"), padx=10, pady=10)
-        input_frame.pack(fill="x", padx=10, pady=5)
-
-        country_frame = tk.Frame(input_frame)
-        country_frame.pack(fill="x", pady=5)
-        tk.Label(country_frame, text="Страна ввоза:", width=18, anchor="e").pack(side="left", padx=5)
-        country_list = ["— Выберите страну —", "Япония", "Китай", "Корея"]
-        country_combo = ttk.Combobox(country_frame, textvariable=self.selected_country,
-                                      values=country_list, state="readonly", width=18)
-        country_combo.pack(side="left", padx=5, fill="x", expand=True)
-        country_combo.current(0)
-        country_combo.bind("<<ComboboxSelected>>", lambda e: self.on_country_selected())
-
-        self.price_hint_label = tk.Label(input_frame, text="", fg="gray", font=("Arial", 8), wraplength=500)
-        self.price_hint_label.pack(fill="x", pady=2)
-
-        price_frame = tk.Frame(input_frame)
-        price_frame.pack(fill="x", pady=5)
-        tk.Label(price_frame, text="Цена покупки (число):", width=18, anchor="e").pack(side="left", padx=5)
-        self.price_entry = tk.Entry(price_frame, width=30, state="disabled")
-        self.price_entry.pack(side="left", padx=5, fill="x", expand=True)
-        self.create_context_menu(self.price_entry)
-
-        volume_frame = tk.Frame(input_frame)
-        volume_frame.pack(fill="x", pady=5)
-        tk.Label(volume_frame, text="Объём двигателя (см³):", width=18, anchor="e").pack(side="left", padx=5)
-        self.volume_entry = tk.Entry(volume_frame, width=30, state="disabled")
-        self.volume_entry.pack(side="left", padx=5, fill="x", expand=True)
-        self.create_context_menu(self.volume_entry)
-
-        age_frame = tk.LabelFrame(input_frame, text="Возраст автомобиля", font=("Arial", 9), padx=5, pady=5)
-        age_frame.pack(fill="x", pady=5)
-
-        self.age_btn_1 = tk.Button(age_frame, text="🆕 Младше 3 лет (0-2 года)",
-                                    command=lambda: self.set_age(1),
-                                    bg="#e8f5e9", fg="#2e7d32", font=("Arial", 9), state="disabled")
-        self.age_btn_1.pack(side="left", fill="x", expand=True, padx=2, pady=2)
-
-        self.age_btn_2 = tk.Button(age_frame, text="🟡 От 3 до 5 лет (3-4 года)",
-                                    command=lambda: self.set_age(3),
-                                    bg="#fff3e0", fg="#e65100", font=("Arial", 9), state="disabled")
-        self.age_btn_2.pack(side="left", fill="x", expand=True, padx=2, pady=2)
-
-        self.age_btn_3 = tk.Button(age_frame, text="🔵 Старше 5 лет (5+ лет)",
-                                    command=lambda: self.set_age(5),
-                                    bg="#e3f2fd", fg="#1565c0", font=("Arial", 9), state="disabled")
-        self.age_btn_3.pack(side="left", fill="x", expand=True, padx=2, pady=2)
-
-        self.customs_info_label = tk.Label(main_frame, text="", fg="blue", font=("Arial", 9), justify="left")
-        self.customs_info_label.pack(pady=5, fill="x")
-
-        btn_frame = tk.Frame(main_frame)
-        btn_frame.pack(pady=5, fill="x")
-
-        btn_update = tk.Button(btn_frame, text="🔄 Обновить курсы", command=self.update_all_rates_sync,
-                               bg="#3498db", fg="white", padx=10, pady=5)
-        btn_update.pack(side="left", expand=True, fill="x", padx=5)
-
-        self.calc_button = tk.Button(btn_frame, text="РАССЧИТАТЬ", command=self.calculate,
-                                      bg="#27ae60", fg="white", padx=10, pady=5,
-                                      font=("Arial", 10, "bold"), state="disabled")
-        self.calc_button.pack(side="left", expand=True, fill="x", padx=5)
-
-        # --- Результаты ---
-        self.result_frame = tk.LabelFrame(main_frame, text="📋 РЕЗУЛЬТАТ", font=("Arial", 10, "bold"), padx=10, pady=10)
-        self.result_frame.pack(fill="both", expand=True, padx=10, pady=5)
-
-        self.total_label = tk.Label(self.result_frame, text="", font=("Arial", 18, "bold"), fg="#e67e22")
-        self.total_label.pack(pady=10, fill="x")
-
-        copy_btn = tk.Button(self.result_frame, text="📋 Копировать расчёт", command=self.copy_details_to_clipboard,
-                              bg="#9b59b6", fg="white", font=("Arial", 9), padx=5, pady=3)
-        copy_btn.pack(pady=5)
-
-        self.details_btn = tk.Button(self.result_frame, text="▶ Показать подробный расчёт",
-                                      command=self.toggle_details, bg="#ecf0f1", fg="#2c3e50",
-                                      font=("Arial", 9), padx=5, pady=3)
-        self.details_btn.pack(pady=5)
-
-        self.details_text = tk.Text(self.result_frame, height=18, state="disabled", wrap=tk.WORD)
-
-        # --- Контакты ---
-        contacts_frame = tk.Frame(main_frame, bg="#f8f9fa", relief="ridge", bd=1)
-        contacts_frame.pack(fill="x", padx=10, pady=10)
-
-        tk.Label(contacts_frame, text="📢 Хотите заказать автомобиль?",
-                 font=("Arial", 10, "bold"), bg="#f8f9fa", fg="#2c3e50").pack(pady=(10,5))
-        tk.Label(contacts_frame, text="🇯🇵 Япония | 🇰🇷 Корея | 🇨🇳 Китай",
-                 font=("Arial", 9), bg="#f8f9fa", fg="#7f8c8d").pack()
-        tk.Label(contacts_frame, text="📱 Telegram: @autozakaz_jpn_korea",
-                 font=("Arial", 10), bg="#f8f9fa", fg="#2980b9").pack(pady=5)
-        tk.Label(contacts_frame, text="📞 Телефон: +7 (983) 270-35-01",
-                 font=("Arial", 10, "bold"), bg="#f8f9fa", fg="#e74c3c").pack(pady=(0,10))
-
-        self.status_label = tk.Label(main_frame, text="", fg="blue", font=("Arial", 8))
-        self.status_label.pack(pady=2, fill="x")
-
-        self.update_age_buttons()
-
-    def update_all_rates_sync(self):
-        self.status_label.config(text="Обновление курсов...")
-        self.root.update()
-        self.update_all_rates()
-        self.status_label.config(text="Курсы обновлены!" if self.usd_rate_atb.get() > 0 else "Ошибка обновления курсов")
-        self.save_rates()
-        self.root.after(3000, lambda: self.status_label.config(text=""))
-
-    def update_all_rates(self):
-        self.update_atb_rates()
-        self.update_eur_rate_from_cbr()
-        self.update_krw_to_usd_rate()
-        self.save_rates()
-        self.root.after(0, lambda: self.status_label.config(text="Курсы загружены" if self.usd_rate_atb.get() > 0 else "Ошибка загрузки курсов"))
-
-    def update_atb_rates(self):
-        try:
-            url = "https://www.atb.su/"
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            response = requests.get(url, timeout=15, headers=headers)
-            response.encoding = 'utf-8'
-            html = response.text
-
-            # Парсим все курсы из нижней таблицы
-            usd_matches = re.findall(r'USD.*?продажа\s*([\d.]+)', html, re.IGNORECASE)
-            if usd_matches:
-                self.usd_rate_atb.set(float(usd_matches[-1]))
-
-            eur_matches = re.findall(r'EUR.*?продажа\s*([\d.]+)', html, re.IGNORECASE)
-            if eur_matches:
-                self.eur_rate_atb.set(float(eur_matches[-1]))
-
-            cny_matches = re.findall(r'CNY.*?продажа\s*([\d.]+)', html, re.IGNORECASE)
-            if cny_matches:
-                self.cny_rate_atb.set(float(cny_matches[-1]))
-
-            jpy_matches = re.findall(r'JPY.*?продажа\s*([\d.]+)', html, re.IGNORECASE)
-            if jpy_matches:
-                self.jpy_rate_atb.set(float(jpy_matches[-1]))
-
-            krw_matches = re.findall(r'(?:KRW|Вон).*?продажа\s*([\d.]+)', html, re.IGNORECASE)
-            if krw_matches:
-                self.krw_rate_atb.set(float(krw_matches[-1]))
-
-        except Exception as e:
-            print(f"Ошибка АТБ: {e}")
-
-    def update_eur_rate_from_cbr(self):
-        try:
-            url = "https://www.cbr.ru/currency_base/daily/"
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            response = requests.get(url, timeout=15, headers=headers)
-            response.encoding = 'utf-8'
-            html = response.text
-
-            patterns = [r'978.*?EUR.*?1.*?Евро.*?(\d+[\.,]\d+)', r'EUR.*?1.*?Евро.*?(\d+[\.,]\d+)', r'>Евро<.*?>(\d+[\.,]\d+)<']
-            for pattern in patterns:
-                match = re.search(pattern, html, re.IGNORECASE | re.DOTALL)
-                if match:
-                    rate_str = match.group(1).replace(',', '.')
-                    eur_rate = float(rate_str)
-                    if 50 < eur_rate < 150:
-                        self.eur_rate_cb.set(round(eur_rate, 4))
-                        return
-        except Exception as e:
-            print(f"Ошибка парсинга ЦБ РФ: {e}")
-
-    def update_krw_to_usd_rate(self):
-        try:
-            url = "https://api.exchangerate-api.com/v4/latest/KRW"
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                rate = data.get("rates", {}).get("USD")
-                if rate and 800 < rate < 1600:
-                    self.krw_to_usd_rate.set(round(rate, 2))
-                    return
-        except:
-            pass
-        try:
-            url = "https://api.frankfurter.app/latest?from=KRW&to=USD"
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                rate = data.get("rates", {}).get("USD")
-                if rate and 800 < rate < 1600:
-                    self.krw_to_usd_rate.set(round(rate, 2))
-                    return
-        except:
-            pass
-
-    def get_local_currency_rate(self, country):
-        if country == "Япония":
-            return self.jpy_rate_atb.get() / 100.0
-        elif country == "Китай":
-            return self.cny_rate_atb.get()
-        return 1
-
-    def get_customs_rate_by_volume(self, volume, age):
-        if 3 <= age < 5:
-            if volume <= 1000: return 1.5
-            elif volume <= 1500: return 1.7
-            elif volume <= 1800: return 2.5
-            elif volume <= 2300: return 2.7
-            elif volume <= 3000: return 3.0
-            else: return 3.6
-        else:
-            if volume <= 1000: return 3.0
-            elif volume <= 1500: return 3.2
-            elif volume <= 1800: return 3.5
-            elif volume <= 2300: return 4.8
-            elif volume <= 3000: return 5.0
-            else: return 5.7
-
-    def get_customs_rate_by_price(self, price_eur, volume):
-        if price_eur < 8500: rate_per_cm, percent = 2.5, 54
-        elif price_eur <= 16700: rate_per_cm, percent = 3.5, 48
-        elif price_eur <= 42300: rate_per_cm, percent = 5.5, 48
-        elif price_eur <= 84500: rate_per_cm, percent = 7.5, 48
-        elif price_eur <= 169000: rate_per_cm, percent = 15.0, 48
-        else: rate_per_cm, percent = 20.0, 48
-        return max(price_eur * percent / 100, volume * rate_per_cm)
-
-    def calculate_bank_commission(self, amount_rub):
-        commission = amount_rub * 0.015
-        return max(10000, min(commission, 30000))
-
-    def on_country_selected(self):
-        country = self.selected_country.get()
-        if country == "— Выберите страну —" or country not in self.country_costs:
-            self.price_entry.config(state="disabled")
-            self.volume_entry.config(state="disabled")
-            self.age_btn_1.config(state="disabled")
-            self.age_btn_2.config(state="disabled")
-            self.age_btn_3.config(state="disabled")
-            self.calc_button.config(state="disabled")
-            self.price_hint_label.config(text="")
-            self.customs_info_label.config(text="⚠️ Сначала выберите страну ввоза")
-            self.total_label.config(text="")
-            return
-        self.price_entry.config(state="normal")
-        self.volume_entry.config(state="normal")
-        self.age_btn_1.config(state="normal")
-        self.age_btn_2.config(state="normal")
-        self.age_btn_3.config(state="normal")
-        self.calc_button.config(state="normal")
-        hint = self.country_costs[country]["site_hint"]
-        self.price_hint_label.config(text=f"💡 {hint}")
-        self.update_customs_info()
-
-    def set_age(self, age_value):
-        self.car_age.set(age_value)
-        self.update_age_buttons()
-        if self.selected_country.get() in self.country_costs:
-            self.update_customs_info()
-
-    def update_age_buttons(self):
-        age = self.car_age.get()
-        self.age_btn_1.config(relief="raised", bg="#e8f5e9")
-        self.age_btn_2.config(relief="raised", bg="#fff3e0")
-        self.age_btn_3.config(relief="raised", bg="#e3f2fd")
-        if age < 3:
-            self.age_btn_1.config(relief="sunken", bg="#a5d6a7")
-        elif 3 <= age < 5:
-            self.age_btn_2.config(relief="sunken", bg="#ffcc80")
-        else:
-            self.age_btn_3.config(relief="sunken", bg="#90caf9")
-
-    def toggle_rates(self):
-        if self.rates_content.winfo_ismapped():
-            self.rates_content.pack_forget()
-            self.rates_btn.config(text="▶")
-        else:
-            self.rates_content.pack(pady=5, fill="x")
-            self.rates_btn.config(text="▼")
-
-    def toggle_details(self):
-        if self.details_text.winfo_ismapped():
-            self.details_text.pack_forget()
-            self.details_btn.config(text="▶ Показать подробный расчёт")
-        else:
-            self.details_text.pack(pady=10, fill="both", expand=True)
-            self.details_btn.config(text="▼ Скрыть подробный расчёт")
-
-    def update_customs_info(self):
-        age = self.car_age.get()
-        country = self.selected_country.get()
-        if country not in self.country_costs: return
-        if age < 3:
-            customs = "48-54% от стоимости авто"
-            util = "3 000 руб."
-        else:
-            customs = "1.5-5.7 €/см³"
-            util = "5 200 руб."
-        self.customs_info_label.config(text=f"📌 {country} | Таможня: {customs} | Утильсбор: {util}")
-
-    def calculate(self):
-        try:
-            country = self.selected_country.get()
-            if country not in self.country_costs:
-                messagebox.showerror("Ошибка", "Пожалуйста, выберите страну ввоза")
-                return
-
-            price_local = float(self.price_entry.get()) if self.price_entry.get() else 0
-            volume = float(self.volume_entry.get()) if self.volume_entry.get() else 0
-
-            if price_local <= 0:
-                messagebox.showerror("Ошибка", "Введите цену автомобиля")
-                return
-            if volume <= 0:
-                messagebox.showerror("Ошибка", "Введите объём двигателя")
-                return
-
-            age = self.car_age.get()
-            eur_rate = self.eur_rate_cb.get()
-
-            if eur_rate <= 0:
-                messagebox.showerror("Ошибка", "Курс евро не загружен. Нажмите 'Обновить курсы'")
-                return
-
-            country_data = self.country_costs[country]
-
-            # Конвертация цены в рубли
-            if country == "Япония":
-                price_rub = price_local * (self.jpy_rate_atb.get() / 100)
-                conversion_desc = f"{price_local:,.0f} йен × {(self.jpy_rate_atb.get()/100):.4f}"
-            elif country == "Китай":
-                price_rub = price_local * self.cny_rate_atb.get()
-                conversion_desc = f"{price_local:,.0f} юаней × {self.cny_rate_atb.get():.4f}"
-            else:  # Корея
-                usd_amount = price_local / self.krw_to_usd_rate.get()
-                price_rub = usd_amount * self.usd_rate_atb.get()
-                conversion_desc = f"{price_local:,.0f} вон ÷ {self.krw_to_usd_rate.get():.2f} = {usd_amount:.2f} USD × {self.usd_rate_atb.get():.2f}"
-
-            # Местные расходы
-            if country == "Корея":
-                usd_expenses = country_data["local_expenses"] / self.krw_to_usd_rate.get()
-                local_expenses_rub = usd_expenses * self.usd_rate_atb.get()
-            else:
-                local_to_rub = (self.jpy_rate_atb.get() / 100) if country == "Япония" else self.cny_rate_atb.get()
-                local_expenses_rub = country_data["local_expenses"] * local_to_rub
-
-            total_with_expenses = price_rub + local_expenses_rub
-            bank_commission = self.calculate_bank_commission(total_with_expenses)
-            subtotal = total_with_expenses + bank_commission + country_data["broker_fee"]
-
-            # Таможня
-            price_for_customs_eur = (price_rub + local_expenses_rub) / eur_rate
-
-            if age < 3:
-                customs_eur = self.get_customs_rate_by_price(price_for_customs_eur, volume)
-                effective_rate = customs_eur / volume
-                customs_desc = f"48-54% от стоимости, но не менее {effective_rate:.1f} €/см³"
-            else:
-                rate_per_cm = self.get_customs_rate_by_volume(volume, age)
-                customs_eur = volume * rate_per_cm
-                customs_desc = f"{rate_per_cm} €/см³ × {volume:.0f} см³"
-
-            customs_rub = customs_eur * eur_rate
-            util_fee = UTIL_FEE["new"] if age < 3 else UTIL_FEE["old"]
-            total_fixed = FIXED_COSTS["customs_fee"] + util_fee + FIXED_COSTS["waycar"]
-            total_rub = subtotal + customs_rub + total_fixed
-
-            self.total_label.config(text=f"💰 {total_rub:,.2f} ₽")
-
-            age_text = "младше 3 лет" if age < 3 else ("от 3 до 5 лет" if age < 5 else "старше 5 лет")
-            country_name = {"Япония": "Япония", "Китай": "Китай", "Корея": "Корея"}[country]
-
-            detail_str = f"""
-╔════════════════════════════════════════════════════════════════════╗
-║                       ПОДРОБНЫЙ РАСЧЁТ                            ║
-╚════════════════════════════════════════════════════════════════════╝
-
-📌 Страна: {country_name} | Возраст: {age_text} | Объём: {volume:.0f} см³
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        const priceForCustomsEur = (priceRub + localExpensesRub) / rates.eurCb;
+        const customsEur = getCustomsRate(priceForCustomsEur, volume, age);
+        const customsRub = customsEur * rates.eurCb;
+        
+        const utilFee = age < 3 ? 3000 : 5200;
+        const totalFixed = settings.fixedCosts.customsFee + utilFee + settings.fixedCosts.waycar;
+        const totalRub = subtotal + customsRub + totalFixed;
+        
+        document.getElementById("totalValue").innerHTML = totalRub.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " ₽";
+        
+        const ageText = age < 3 ? "младше 3 лет" : (age < 5 ? "от 3 до 5 лет" : "старше 5 лет");
+        const countryName = {japan: "Япония", china: "Китай", korea: "Корея"}[country];
+        const customsDesc = age < 3 ? `48-54% от стоимости, но не менее ${(customsEur/volume).toFixed(1)} €/см³` : `${(customsEur/volume).toFixed(1)} €/см³ × ${volume} см³`;
+        
+        document.getElementById("detailsContent").innerHTML = `
+╔══════════════════════════════════════════════════════════════════╗
+║                       ПОДРОБНЫЙ РАСЧЁТ                          ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📌 Страна: ${countryName} | Возраст: ${ageText} | Объём: ${volume} см³
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 💰 1. СТОИМОСТЬ АВТОМОБИЛЯ:
-   Цена: {price_local:,.0f} {country_data['currency_name']}
-   Конвертация: {conversion_desc}
-   → {price_rub:,.2f} руб.
+   Цена: ${priceLocal.toLocaleString()} ${countryData.currencyName}
+   Конвертация: ${conversionDesc}
+   → ${priceRub.toLocaleString('ru-RU', {minimumFractionDigits: 2})} руб.
 
 🚢 2. РАСХОДЫ НА ДОСТАВКУ И ОФОРМЛЕНИЕ:
-   {country_data['local_expenses']:,} {country_data['currency_name']} → {local_expenses_rub:,.2f} руб.
+   ${countryData.localExpenses.toLocaleString()} ${countryData.currencyName} → ${localExpensesRub.toLocaleString('ru-RU', {minimumFractionDigits: 2})} руб.
 
 🏦 3. КОМИССИЯ БАНКА (1.5%, мин 10 000, макс 30 000 руб.):
-   Сумма: {total_with_expenses:,.2f} руб. × 1.5% = {bank_commission:,.2f} руб.
+   Сумма: ${totalWithExpenses.toLocaleString('ru-RU', {minimumFractionDigits: 2})} руб. × 1.5% = ${bankCommission.toLocaleString('ru-RU', {minimumFractionDigits: 2})} руб.
 
 📋 4. БРОКЕРСКИЕ РАСХОДЫ:
-   → {country_data['broker_fee']:,.2f} руб.
+   → ${countryData.brokerFee.toLocaleString('ru-RU', {minimumFractionDigits: 2})} руб.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 ПРОМЕЖУТОЧНАЯ СУММА: {subtotal:,.2f} руб.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 ПРОМЕЖУТОЧНАЯ СУММА: ${subtotal.toLocaleString('ru-RU', {minimumFractionDigits: 2})} руб.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🏛️ 5. ТАМОЖЕННАЯ ПОШЛИНА:
-   Расчёт: {customs_desc}
-   Стоимость для таможни: {price_for_customs_eur:,.2f} EUR
-   Сумма: {customs_eur:,.2f} EUR × {eur_rate:.2f} = {customs_rub:,.2f} руб.
+   Расчёт: ${customsDesc}
+   Стоимость для таможни: ${priceForCustomsEur.toLocaleString('ru-RU', {minimumFractionDigits: 2})} EUR
+   Сумма: ${customsEur.toLocaleString('ru-RU', {minimumFractionDigits: 2})} EUR × ${rates.eurCb.toFixed(2)} = ${customsRub.toLocaleString('ru-RU', {minimumFractionDigits: 2})} руб.
 
 📦 6. ПРОЧИЕ РАСХОДЫ:
-   • Таможенный сбор:    {FIXED_COSTS['customs_fee']:>10,} руб.
-   • Утилизационный сбор: {util_fee:>10,} руб.
-   • Компания WayCar:     {FIXED_COSTS['waycar']:>10,} руб.
+   • Таможенный сбор:    ${settings.fixedCosts.customsFee.toLocaleString()} руб.
+   • Утилизационный сбор: ${utilFee.toLocaleString()} руб.
+   • Компания WayCar:     ${settings.fixedCosts.waycar.toLocaleString()} руб.
    ───────────────────────────────────────────
-   Итого прочие:          {total_fixed:>10,} руб.
+   Итого прочие:          ${totalFixed.toLocaleString()} руб.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🎯 ИТОГОВАЯ СТОИМОСТЬ на дороге в РФ:
 
-   {total_rub:,.2f} РУБЛЕЙ
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"""
-            self.details_text.config(state="normal")
-            self.details_text.delete(1.0, tk.END)
-            self.details_text.insert(tk.END, detail_str)
-            self.details_text.config(state="disabled")
-
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Ошибка расчёта:\n{e}")
-            import traceback
-            traceback.print_exc()
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = CarCostCalculator(root)
-    root.mainloop()
+   ${totalRub.toLocaleString('ru-RU', {minimumFractionDigits: 2})} РУБЛЕЙ
+`;
+    }
+    
+    function toggleRates() {
+        const content = document.getElementById("ratesContent");
+        const icon = document.getElementById("ratesToggleIcon");
+        if (content.style.display === "none") {
+            content.style.display = "block";
+            icon.textContent = "▼";
+        } else {
+            content.style.display = "none";
+            icon.textContent = "▶";
+        }
+    }
+    
+    function toggleDetails() {
+        const content = document.getElementById("detailsContent");
+        const btn = document.getElementById("detailsBtn");
+        if (content.classList.contains("show")) {
+            content.classList.remove("show");
+            btn.textContent = "▶ Показать подробный расчёт";
+        } else {
+            content.classList.add("show");
+            btn.textContent = "▼ Скрыть подробный расчёт";
+        }
+    }
+    
+    function showAdminPassword() {
+        const pwd = prompt("🔐 Введите пароль администратора:");
+        if (pwd === "100498") {
+            document.getElementById("adminPanel").classList.add("show");
+            renderAdminRates();
+        } else if (pwd !== null) {
+            showToast("Неверный пароль!", true);
+        }
+    }
+    
+    document.querySelectorAll(".age-btn").forEach(btn => {
+        btn.addEventListener("click", function() {
+            document.querySelectorAll(".age-btn").forEach(b => b.classList.remove("active"));
+            this.classList.add("active");
+            currentAge = parseInt(this.dataset.age);
+            calculate();
+        });
+    });
+    
+    document.getElementById("country").addEventListener("change", () => {
+        updateCountryHint();
+        calculate();
+    });
+    document.getElementById("price").addEventListener("input", () => calculate());
+    document.getElementById("volume").addEventListener("input", () => calculate());
+    
+    document.querySelectorAll(".age-btn").forEach(btn => {
+        if (parseInt(btn.dataset.age) === currentAge) btn.classList.add("active");
+    });
+</script>
+</body>
+</html>
