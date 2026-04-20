@@ -212,7 +212,7 @@
         });
     }
     
-    // ==================== НАСТРОЙКИ (ВЕРНЫЕ ЗНАЧЕНИЯ) ====================
+    // ==================== НАСТРОЙКИ ====================
     var settings = {
         countryCosts: {
             japan: { localExpenses: 220000, brokerFee: 27000, currencyName: "йен" },
@@ -220,13 +220,13 @@
             korea: { localExpenses: 2000000, brokerFee: 85000, currencyName: "вон" }
         },
         rates: {
-            usdAtb: 77.72,    // ✅ верный курс USD (АТБ)
-            eurAtb: 92.70,    // ✅ верный курс EUR (АТБ)
-            cnyAtb: 11.40,    // ✅ верный курс CNY (АТБ)
-            jpyAtb: 51.50,    // ✅ верный курс JPY (АТБ)
-            krwAtb: 16.89,    // ✅ верный курс KRW (АТБ)
-            krwUsd: 1475.0,   // курс вон к доллару (можно менять)
-            eurCb: 89.63      // ✅ верный курс EUR (ЦБ)
+            usdAtb: 77.52,
+            eurAtb: 92.08,
+            cnyAtb: 11.35,
+            jpyAtb: 51.50,
+            krwAtb: 16.89,
+            krwUsd: 1475.0,
+            eurCb: 89.63
         },
         fixedCosts: { customsFee: 1300, waycar: 60000 }
     };
@@ -376,28 +376,33 @@
         calculate();
     }
     
-    // ==================== ПАРСИНГ КУРСОВ ====================
+    // ==================== ПАРСИНГ КУРСОВ ЧЕРЕЗ ПРОКСИ ====================
     var updateStatus = document.getElementById("updateStatus");
     
     async function parseATBRates() {
         try {
-            var response = await fetch('https://www.atb.su/');
-            var html = await response.text();
+            // Используем прокси для обхода CORS
+            var proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.atb.su/');
+            var response = await fetch(proxyUrl);
+            var data = await response.json();
+            var html = data.contents;
             
-            var usdMatches = [...html.matchAll(/USD.*?продажа\s*([\d.]+)/gi)];
-            if (usdMatches.length > 0) settings.rates.usdAtb = parseFloat(usdMatches[usdMatches.length - 1][1]);
+            // Парсим курсы продажи (берем последнее вхождение - нижняя таблица)
+            var usdMatch = html.match(/USD.*?продажа\s*([\d.]+)/i);
+            if (usdMatch) settings.rates.usdAtb = parseFloat(usdMatch[1]);
             
-            var eurMatches = [...html.matchAll(/EUR.*?продажа\s*([\d.]+)/gi)];
-            if (eurMatches.length > 0) settings.rates.eurAtb = parseFloat(eurMatches[eurMatches.length - 1][1]);
+            var eurMatch = html.match(/EUR.*?продажа\s*([\d.]+)/i);
+            if (eurMatch) settings.rates.eurAtb = parseFloat(eurMatch[1]);
             
-            var cnyMatches = [...html.matchAll(/CNY.*?продажа\s*([\d.]+)/gi)];
-            if (cnyMatches.length > 0) settings.rates.cnyAtb = parseFloat(cnyMatches[cnyMatches.length - 1][1]);
+            var cnyMatch = html.match(/CNY.*?продажа\s*([\d.]+)/i);
+            if (cnyMatch) settings.rates.cnyAtb = parseFloat(cnyMatch[1]);
             
-            var jpyMatches = [...html.matchAll(/JPY.*?продажа\s*([\d.]+)/gi)];
-            if (jpyMatches.length > 0) settings.rates.jpyAtb = parseFloat(jpyMatches[jpyMatches.length - 1][1]);
+            var jpyMatch = html.match(/JPY.*?продажа\s*([\d.]+)/i);
+            if (jpyMatch) settings.rates.jpyAtb = parseFloat(jpyMatch[1]);
             
-            var krwMatches = [...html.matchAll(/(?:KRW|Вон).*?продажа\s*([\d.]+)/gi)];
-            if (krwMatches.length > 0) settings.rates.krwAtb = parseFloat(krwMatches[krwMatches.length - 1][1]);
+            // Для KRW ищем оба варианта
+            var krwMatch = html.match(/(?:KRW|Вон).*?продажа\s*([\d.]+)/i);
+            if (krwMatch) settings.rates.krwAtb = parseFloat(krwMatch[1]);
             
             return true;
         } catch(e) {
@@ -423,8 +428,10 @@
     
     async function parseEURCBR() {
         try {
-            var response = await fetch('https://www.cbr.ru/scripts/XML_daily.asp');
-            var text = await response.text();
+            var proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.cbr.ru/scripts/XML_daily.asp');
+            var response = await fetch(proxyUrl);
+            var data = await response.json();
+            var text = data.contents;
             var match = text.match(/EUR.*?(\d+[\.,]\d+)/i);
             if (match) {
                 var rate = parseFloat(match[1].replace(',', '.'));
@@ -441,7 +448,7 @@
     }
     
     async function updateAllRates() {
-        updateStatus.innerHTML = "⏳ Обновление курсов...";
+        updateStatus.innerHTML = "⏳ Обновление курсов через прокси...";
         updateStatus.style.color = "#3498db";
         
         var atbOk = await parseATBRates();
@@ -461,10 +468,10 @@
         updateStatus.innerHTML = "📡 " + statusMessages.join(" | ");
         updateStatus.style.color = krwUsdOk ? "#27ae60" : "#e74c3c";
         
-        if (krwUsdOk) {
-            showToast("Курсы обновлены! KRW/USD: " + settings.rates.krwUsd.toFixed(2), false);
+        if (atbOk) {
+            showToast("Курсы АТБ обновлены! USD: " + settings.rates.usdAtb.toFixed(2), false);
         } else {
-            showToast("Не удалось обновить KRW/USD. Введите курс вручную.", true);
+            showToast("Не удалось обновить курсы АТБ. Проверьте интернет.", true);
         }
         
         setTimeout(function() { updateStatus.innerHTML = ""; }, 5000);
