@@ -118,7 +118,7 @@
             <a href="https://finance.naver.com/marketindex/exchangeDetail.nhn?marketindexCd=FX_USDKRW" target="_blank">🔗 Актуальный курс на Naver</a>
         </div>
         
-        <button class="btn-secondary" onclick="updateAllRates()">🔄 Обновить курсы (АТБ + ЦБ РФ + API)</button>
+        <button class="btn-secondary" onclick="fetchRatesFromServer()">🔄 Обновить курсы с сервера</button>
         <div id="updateStatus" class="status-bar"></div>
     </div>
     
@@ -153,6 +153,9 @@
     // ==================== ЗАЩИТА ПАРОЛЕМ ====================
     var ACCESS_PASSWORD = "secret123";
     
+    // ==================== АДРЕС ВАШЕГО СЕРВЕРА ====================
+    var API_URL = "https://car-calc-api.onrender.com/rates";
+    
     function showToast(message, isError) {
         var toast = document.getElementById("toast");
         toast.textContent = message;
@@ -167,6 +170,7 @@
             document.getElementById("passwordModal").style.display = "none";
             document.getElementById("mainContent").style.display = "block";
             loadSettings();
+            fetchRatesFromServer();
         } else {
             document.getElementById("passwordError").style.display = "block";
             document.getElementById("accessPassword").value = "";
@@ -223,7 +227,7 @@
             cnyAtb: 11.35,
             jpyAtb: 51.50,
             krwAtb: 16.89,
-            krwUsd: 1475.0,
+            krwUsd: 1450.0,
             eurCb: 89.63
         },
         fixedCosts: { customsFee: 1300, waycar: 60000 }
@@ -231,6 +235,46 @@
     
     var currentAge = 2;
     var editingKey = null;
+    
+    // ==================== ЗАГРУЗКА КУРСОВ С СЕРВЕРА ====================
+    async function fetchRatesFromServer() {
+        var statusDiv = document.getElementById("updateStatus");
+        statusDiv.innerHTML = "⏳ Загрузка курсов с сервера...";
+        statusDiv.style.color = "#3498db";
+        showToast("Загрузка курсов с сервера...", false);
+        
+        try {
+            var response = await fetch(API_URL);
+            var data = await response.json();
+            
+            if (data) {
+                if (data.usd) settings.rates.usdAtb = data.usd;
+                if (data.eur) settings.rates.eurAtb = data.eur;
+                if (data.cny) settings.rates.cnyAtb = data.cny;
+                if (data.jpy) settings.rates.jpyAtb = data.jpy;
+                if (data.krw) settings.rates.krwAtb = data.krw;
+                if (data.krw_usd) settings.rates.krwUsd = data.krw_usd;
+                if (data.eur_cb) settings.rates.eurCb = data.eur_cb;
+                
+                renderRates();
+                renderAdminRates();
+                saveSettings();
+                calculate();
+                
+                statusDiv.innerHTML = "✅ Курсы обновлены с сервера!";
+                statusDiv.style.color = "#27ae60";
+                showToast("Курсы успешно загружены с сервера!", false);
+                
+                setTimeout(function() { statusDiv.innerHTML = ""; }, 3000);
+            }
+        } catch(e) {
+            console.error("Ошибка загрузки с сервера:", e);
+            statusDiv.innerHTML = "❌ Ошибка подключения к серверу";
+            statusDiv.style.color = "#e74c3c";
+            showToast("Не удалось подключиться к серверу", true);
+            setTimeout(function() { statusDiv.innerHTML = ""; }, 3000);
+        }
+    }
     
     function loadSettings() {
         var saved = localStorage.getItem("carCalcSettings");
@@ -374,102 +418,6 @@
         calculate();
     }
     
-    // ==================== ПАРСИНГ КУРСОВ ====================
-    var updateStatus = document.getElementById("updateStatus");
-    
-    async function parseATBRates() {
-        try {
-            var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.atb.su/');
-            var response = await fetch(proxyUrl);
-            var html = await response.text();
-            
-            var usdMatch = html.match(/USD.*?продажа\s*([\d.]+)/i);
-            if (usdMatch) settings.rates.usdAtb = parseFloat(usdMatch[1]);
-            
-            var eurMatch = html.match(/EUR.*?продажа\s*([\d.]+)/i);
-            if (eurMatch) settings.rates.eurAtb = parseFloat(eurMatch[1]);
-            
-            var cnyMatch = html.match(/CNY.*?продажа\s*([\d.]+)/i);
-            if (cnyMatch) settings.rates.cnyAtb = parseFloat(cnyMatch[1]);
-            
-            var jpyMatch = html.match(/JPY.*?продажа\s*([\d.]+)/i);
-            if (jpyMatch) settings.rates.jpyAtb = parseFloat(jpyMatch[1]);
-            
-            var krwMatch = html.match(/(?:KRW|Вон).*?продажа\s*([\d.]+)/i);
-            if (krwMatch) settings.rates.krwAtb = parseFloat(krwMatch[1]);
-            
-            return true;
-        } catch(e) {
-            console.log("Ошибка АТБ:", e);
-            return false;
-        }
-    }
-    
-    async function parseEURCBR() {
-        try {
-            var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.cbr.ru/scripts/XML_daily.asp');
-            var response = await fetch(proxyUrl);
-            var text = await response.text();
-            var match = text.match(/EUR.*?(\d+[\.,]\d+)/i);
-            if (match) {
-                var rate = parseFloat(match[1].replace(',', '.'));
-                if (rate > 50 && rate < 150) {
-                    settings.rates.eurCb = rate;
-                    return true;
-                }
-            }
-            return false;
-        } catch(e) {
-            console.log("Ошибка парсинга ЦБ РФ:", e);
-            return false;
-        }
-    }
-    
-    async function parseKRWUSD() {
-        try {
-            var response = await fetch('https://api.exchangerate-api.com/v4/latest/KRW');
-            var data = await response.json();
-            if (data.rates && data.rates.USD) {
-                settings.rates.krwUsd = data.rates.USD;
-                return true;
-            }
-            return false;
-        } catch(e) {
-            console.log("Ошибка KRW/USD:", e);
-            return false;
-        }
-    }
-    
-    async function updateAllRates() {
-        updateStatus.innerHTML = "⏳ Обновление курсов...";
-        updateStatus.style.color = "#3498db";
-        showToast("Обновление курсов...", false);
-        
-        var atbOk = await parseATBRates();
-        var krwUsdOk = await parseKRWUSD();
-        var eurOk = await parseEURCBR();
-        
-        renderRates();
-        renderAdminRates();
-        saveSettings();
-        calculate();
-        
-        var statusMessages = [];
-        statusMessages.push(atbOk ? "АТБ ✓" : "АТБ ✗");
-        statusMessages.push(krwUsdOk ? "KRW/USD ✓" : "KRW/USD ✗");
-        statusMessages.push(eurOk ? "EUR (ЦБ) ✓" : "EUR (ЦБ) ✗");
-        
-        updateStatus.innerHTML = "📡 " + statusMessages.join(" | ");
-        
-        if (eurOk) {
-            showToast("✅ Курс евро (ЦБ) обновлён: " + settings.rates.eurCb.toFixed(2) + " руб", false);
-        } else {
-            showToast("❌ Не удалось обновить курс евро (ЦБ)", true);
-        }
-        
-        setTimeout(function() { updateStatus.innerHTML = ""; }, 5000);
-    }
-    
     function updateCountryHint() {
         var country = document.getElementById("country").value;
         var hintMap = { 
@@ -573,7 +521,7 @@
         
         var detailsText = 
 "╔══════════════════════════════════════════════════════════════════╗\n" +
-"║                       ПОДРОБНЫЙ РАСЧЁТ                           ║\n" +
+"║                       ПОДРОБНЫЙ РАСЧЁТ                          ║\n" +
 "╚══════════════════════════════════════════════════════════════════╝\n\n" +
 "📌 Страна: " + countryName + " | Возраст: " + ageText + " | Объём: " + volume + " см³\n\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
