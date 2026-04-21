@@ -377,7 +377,6 @@
     // ==================== ПАРСИНГ КУРСОВ ====================
     var updateStatus = document.getElementById("updateStatus");
     
-    // Парсинг АТБ через прокси
     async function parseATBRates() {
         try {
             var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.atb.su/');
@@ -406,7 +405,6 @@
         }
     }
     
-    // Парсинг курса евро с ЦБ РФ через прокси (как в десктопной версии)
     async function parseEURCBR() {
         try {
             var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.cbr.ru/scripts/XML_daily.asp');
@@ -427,7 +425,6 @@
         }
     }
     
-    // Парсинг курса KRW/USD через API
     async function parseKRWUSD() {
         try {
             var response = await fetch('https://api.exchangerate-api.com/v4/latest/KRW');
@@ -576,7 +573,7 @@
         
         var detailsText = 
 "╔══════════════════════════════════════════════════════════════════╗\n" +
-"║                       ПОДРОБНЫЙ РАСЧЁТ                          ║\n" +
+"║                       ПОДРОБНЫЙ РАСЧЁТ                           ║\n" +
 "╚══════════════════════════════════════════════════════════════════╝\n\n" +
 "📌 Страна: " + countryName + " | Возраст: " + ageText + " | Объём: " + volume + " см³\n\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
@@ -601,9 +598,8 @@
 "   • Таможенный сбор:    " + formatNumberWithSpaces(settings.fixedCosts.customsFee) + " руб.\n" +
 "   • Утилизационный сбор: " + formatNumberWithSpaces(utilFee) + " руб.\n" +
 "   • Компания WayCar:     " + formatNumberWithSpaces(settings.fixedCosts.waycar) + " руб.\n" +
-"   ───────────────────────────────────────────\n" +https://github.com/WayCar24ru/calc/blob/main/index.html
+"   ───────────────────────────────────────────\n" +
 "   Итого прочие:          " + formatNumberWithSpaces(totalFixed) + " руб.\n\n" +
-"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
 "🎯 ИТОГОВАЯ СТОИМОСТЬ с таможней для ФИЗ.ЛИЦА в РФ г.Владивосток:\n\n" +
 "   " + formatNumberWithSpaces(totalRub) + " РУБЛЕЙ\n" +
