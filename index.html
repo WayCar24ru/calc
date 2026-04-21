@@ -167,7 +167,6 @@
             document.getElementById("passwordModal").style.display = "none";
             document.getElementById("mainContent").style.display = "block";
             loadSettings();
-            updateAllRates();
         } else {
             document.getElementById("passwordError").style.display = "block";
             document.getElementById("accessPassword").value = "";
@@ -260,9 +259,9 @@
             settings.rates.krwUsd = rate;
             renderRates();
             renderAdminRates();
-            saveSettings();
+            saveSettings();  // ← СОХРАНЯЕМ СРАЗУ!
             calculate();
-            showToast("Курс KRW/USD установлен: " + rate.toFixed(2), false);
+            showToast("Курс KRW/USD установлен: " + rate.toFixed(2) + " и сохранён!", false);
         } else {
             showToast("Введите корректное число!", true);
         }
@@ -378,7 +377,6 @@
     // ==================== ПАРСИНГ КУРСОВ ====================
     var updateStatus = document.getElementById("updateStatus");
     
-    // Парсинг АТБ через прокси
     async function parseATBRates() {
         try {
             var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.atb.su/');
@@ -407,10 +405,8 @@
         }
     }
     
-    // Парсинг курса евро с ЦБ РФ через JSON API (самый надёжный способ)
     async function parseEURCBR() {
         try {
-            // Используем бесплатный API, который возвращает курс евро в JSON
             var response = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
             var data = await response.json();
             if (data.rates && data.rates.RUB) {
@@ -427,7 +423,6 @@
         }
     }
     
-    // Парсинг курса KRW/USD
     async function parseKRWUSD() {
         try {
             var response = await fetch('https://api.exchangerate-api.com/v4/latest/KRW');
@@ -465,7 +460,7 @@
         updateStatus.innerHTML = "📡 " + statusMessages.join(" | ");
         
         if (eurOk) {
-            showToast("✅ Курс евро (ЦБ) обновлён: " + settings.rates.eurCb.toFixed(2) + " руб", false);
+            showToast("✅ Курсы обновлены! EUR (ЦБ): " + settings.rates.eurCb.toFixed(2) + " руб", false);
         } else {
             showToast("❌ Не удалось обновить курсы", true);
         }
