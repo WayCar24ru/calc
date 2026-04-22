@@ -56,6 +56,7 @@
         .modal-content { background: white; border-radius: 20px; padding: 20px; width: 280px; text-align: center; }
         .modal-content input { width: 100%; padding: 12px; margin: 12px 0; border: 1px solid #ddd; border-radius: 12px; }
         .modal-content .error { color: #e74c3c; font-size: 0.8rem; display: none; }
+        .loading { text-align: center; padding: 20px; color: #3498db; }
     </style>
 </head>
 <body>
@@ -120,8 +121,7 @@
             <a href="https://finance.naver.com/marketindex/exchangeDetail.nhn?marketindexCd=FX_USDKRW" target="_blank">🔗 Актуальный курс на Naver</a>
         </div>
         
-        <button class="btn-secondary" onclick="fetchAllSettingsFromServer()">🔄 Обновить все настройки с сервера</button>
-        <div id="updateStatus" class="status-bar"></div>
+        <div class="status-bar" id="updateStatus"></div>
     </div>
     
     <div class="total">
@@ -150,6 +150,7 @@
 </div>
 
 <div id="toast" class="toast"></div>
+<div id="loadingOverlay" class="loading" style="display: none;">Загрузка настроек...</div>
 
 <script>
     // ==================== АДРЕС ВАШЕГО СЕРВЕРА ====================
@@ -158,6 +159,29 @@
     
     // ==================== ПАРОЛЬ АДМИН-ПАНЕЛИ ====================
     var ADMIN_PASSWORD = "100498";
+    
+    // ==================== НАСТРОЙКИ (заглушка, будут заменены с сервера) ====================
+    var settings = {
+        countryCosts: {
+            japan: { localExpenses: 220000, brokerFee: 27000, currencyName: "йен" },
+            china: { localExpenses: 12500, brokerFee: 65000, currencyName: "юаней" },
+            korea: { localExpenses: 2000000, brokerFee: 85000, currencyName: "вон" }
+        },
+        rates: {
+            usdAtb: 77.52,
+            eurAtb: 92.08,
+            cnyAtb: 11.35,
+            jpyAtb: 51.50,
+            krwAtb: 16.89,
+            krwUsd: 1450.0,
+            eurCb: 89.63
+        },
+        fixedCosts: { customsFee: 1300, waycar: 60000 }
+    };
+    
+    var currentAge = 2;
+    var editingKey = null;
+    var isLoading = true;
     
     function showToast(message, isError) {
         var toast = document.getElementById("toast");
@@ -214,48 +238,25 @@
             var num = parseFloat(rawValue);
             if (!isNaN(num)) {
                 this.value = formatNumberWithSpaces(num);
-                calculate();
+                if (!isLoading) calculate();
             } else if (this.value === "") {
-                calculate();
+                if (!isLoading) calculate();
             }
         });
         
         priceInput.addEventListener("blur", function() {
             if (this.value === "") {
                 this.value = "0";
-                calculate();
+                if (!isLoading) calculate();
             }
         });
     }
-    
-    // ==================== НАСТРОЙКИ ====================
-    var settings = {
-        countryCosts: {
-            japan: { localExpenses: 220000, brokerFee: 27000, currencyName: "йен" },
-            china: { localExpenses: 12500, brokerFee: 65000, currencyName: "юаней" },
-            korea: { localExpenses: 2000000, brokerFee: 85000, currencyName: "вон" }
-        },
-        rates: {
-            usdAtb: 77.52,
-            eurAtb: 92.08,
-            cnyAtb: 11.35,
-            jpyAtb: 51.50,
-            krwAtb: 16.89,
-            krwUsd: 1450.0,
-            eurCb: 89.63
-        },
-        fixedCosts: { customsFee: 1300, waycar: 60000 }
-    };
-    
-    var currentAge = 2;
-    var editingKey = null;
     
     // ==================== ЗАГРУЗКА ВСЕХ НАСТРОЕК С СЕРВЕРА ====================
     async function fetchAllSettingsFromServer() {
         var statusDiv = document.getElementById("updateStatus");
         statusDiv.innerHTML = "⏳ Загрузка настроек с сервера...";
         statusDiv.style.color = "#3498db";
-        showToast("Загрузка настроек с сервера...", false);
         
         try {
             var response = await fetch(API_URL);
@@ -296,23 +297,22 @@
                 }
                 
                 renderRates();
-                renderAdminRates();
-                saveSettingsToLocal();
-                calculate();
+                updateCountryHint();
                 
-                statusDiv.innerHTML = "✅ Все настройки загружены с сервера!";
+                statusDiv.innerHTML = "✅ Настройки загружены с сервера!";
                 statusDiv.style.color = "#27ae60";
-                showToast("Настройки успешно загружены с сервера!", false);
-                
                 setTimeout(function() { statusDiv.innerHTML = ""; }, 3000);
+                
+                return true;
             }
         } catch(e) {
             console.error("Ошибка загрузки с сервера:", e);
-            statusDiv.innerHTML = "❌ Ошибка подключения к серверу";
+            statusDiv.innerHTML = "❌ Ошибка подключения к серверу, используются локальные настройки";
             statusDiv.style.color = "#e74c3c";
-            showToast("Не удалось подключиться к серверу", true);
             setTimeout(function() { statusDiv.innerHTML = ""; }, 3000);
+            return false;
         }
+        return false;
     }
     
     // ==================== СОХРАНЕНИЕ НАСТРОЕК НА СЕРВЕР ====================
@@ -344,21 +344,15 @@
         }
     }
     
-    function saveSettingsToLocal() {
-        localStorage.setItem("carCalcSettings", JSON.stringify(settings));
-    }
-    
     function setManualKrwUsd() {
         var input = document.getElementById("manualKrwUsd").value;
         var rate = parseFloat(input.replace(/,/g, '.'));
         if (!isNaN(rate) && rate > 0) {
             settings.rates.krwUsd = rate;
             renderRates();
-            renderAdminRates();
-            saveSettingsToLocal();
             saveSettingsToServer();
             calculate();
-            showToast("Курс KRW/USD установлен: " + rate.toFixed(2) + " и сохранён!", false);
+            showToast("Курс KRW/USD установлен и сохранён на сервере!", false);
         } else {
             showToast("Введите корректное число!", true);
         }
@@ -384,8 +378,6 @@
             if (!isNaN(newValue) && newValue > 0) {
                 settings.rates[key] = newValue;
                 renderRates();
-                renderAdminRates();
-                saveSettingsToLocal();
                 saveSettingsToServer();
                 calculate();
                 showToast("Курс обновлён и сохранён на сервере!", false);
@@ -477,7 +469,6 @@
         settings.fixedCosts.customsFee = parseFloat(document.getElementById("admin_customsFee").value) || settings.fixedCosts.customsFee;
         settings.fixedCosts.waycar = parseFloat(document.getElementById("admin_waycar").value) || settings.fixedCosts.waycar;
         
-        saveSettingsToLocal();
         await saveSettingsToServer();
         renderRates();
         showToast("Все настройки сохранены на сервере!", false);
@@ -527,6 +518,8 @@
     }
     
     function calculate() {
+        if (isLoading) return;
+        
         var country = document.getElementById("country").value;
         if (!country) {
             document.getElementById("totalValue").innerHTML = "0 ₽";
@@ -635,25 +628,30 @@
         }
     }
     
-    // ==================== ЗАГРУЗКА НАСТРОЕК ПРИ СТАРТЕ ====================
-    fetchAllSettingsFromServer();
-    
-    // ==================== ИНИЦИАЛИЗАЦИЯ СОБЫТИЙ ====================
+    // ==================== ИНИЦИАЛИЗАЦИЯ ====================
     document.querySelectorAll(".age-btn").forEach(function(btn) {
         btn.addEventListener("click", function() {
             document.querySelectorAll(".age-btn").forEach(function(b) { b.classList.remove("active"); });
             this.classList.add("active");
             currentAge = parseInt(this.dataset.age);
-            calculate();
+            if (!isLoading) calculate();
         });
     });
     
     document.getElementById("country").addEventListener("change", function() { 
         updateCountryHint(); 
-        calculate(); 
+        if (!isLoading) calculate(); 
     });
     
-    document.getElementById("volume").addEventListener("input", function() { calculate(); });
+    document.getElementById("volume").addEventListener("input", function() { 
+        if (!isLoading) calculate(); 
+    });
+    
+    // Загружаем настройки с сервера и запускаем калькулятор
+    fetchAllSettingsFromServer().then(function() {
+        isLoading = false;
+        calculate();
+    });
     
     document.querySelectorAll(".age-btn").forEach(function(btn) { 
         if (parseInt(btn.dataset.age) === currentAge) btn.classList.add("active"); 
