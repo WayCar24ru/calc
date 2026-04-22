@@ -120,7 +120,7 @@
             <a href="https://finance.naver.com/marketindex/exchangeDetail.nhn?marketindexCd=FX_USDKRW" target="_blank">🔗 Актуальный курс на Naver</a>
         </div>
         
-        <button class="btn-secondary" onclick="fetchRatesFromServer()">🔄 Обновить курсы с сервера</button>
+        <button class="btn-secondary" onclick="fetchAllSettingsFromServer()">🔄 Обновить все настройки с сервера</button>
         <div id="updateStatus" class="status-bar"></div>
     </div>
     
@@ -135,7 +135,7 @@
     <div id="adminPanel" class="admin-panel">
         <div class="card-title" style="border-left-color: #f39c12;">👑 Админ-панель</div>
         <div id="adminRates"></div>
-        <button class="btn-primary" style="background: #27ae60; margin-top: 12px;" onclick="saveAdminSettings()">💾 Сохранить настройки на сервер</button>
+        <button class="btn-primary" style="background: #27ae60; margin-top: 12px;" onclick="saveAdminSettings()">💾 Сохранить все настройки на сервер</button>
     </div>
     
     <button class="btn-outline" onclick="showAdminPasswordModal()" style="margin-top: 8px;">👑 Admin</button>
@@ -153,7 +153,7 @@
 
 <script>
     // ==================== АДРЕС ВАШЕГО СЕРВЕРА ====================
-    var API_URL = "https://car-calc-api.onrender.com/rates";
+    var API_URL = "https://car-calc-api.onrender.com/settings";
     var SAVE_URL = "https://car-calc-api.onrender.com/save";
     
     // ==================== ПАРОЛЬ АДМИН-ПАНЕЛИ ====================
@@ -250,34 +250,59 @@
     var currentAge = 2;
     var editingKey = null;
     
-    // ==================== ЗАГРУЗКА КУРСОВ С СЕРВЕРА ====================
-    async function fetchRatesFromServer() {
+    // ==================== ЗАГРУЗКА ВСЕХ НАСТРОЕК С СЕРВЕРА ====================
+    async function fetchAllSettingsFromServer() {
         var statusDiv = document.getElementById("updateStatus");
-        statusDiv.innerHTML = "⏳ Загрузка курсов с сервера...";
+        statusDiv.innerHTML = "⏳ Загрузка настроек с сервера...";
         statusDiv.style.color = "#3498db";
-        showToast("Загрузка курсов с сервера...", false);
+        showToast("Загрузка настроек с сервера...", false);
         
         try {
             var response = await fetch(API_URL);
             var data = await response.json();
             
             if (data) {
-                if (data.usd) settings.rates.usdAtb = data.usd;
-                if (data.eur) settings.rates.eurAtb = data.eur;
-                if (data.cny) settings.rates.cnyAtb = data.cny;
-                if (data.jpy) settings.rates.jpyAtb = data.jpy;
-                if (data.krw) settings.rates.krwAtb = data.krw;
-                if (data.krw_usd) settings.rates.krwUsd = data.krw_usd;
-                if (data.eur_cb) settings.rates.eurCb = data.eur_cb;
+                // Загружаем курсы
+                if (data.rates) {
+                    if (data.rates.usd) settings.rates.usdAtb = data.rates.usd;
+                    if (data.rates.eur) settings.rates.eurAtb = data.rates.eur;
+                    if (data.rates.cny) settings.rates.cnyAtb = data.rates.cny;
+                    if (data.rates.jpy) settings.rates.jpyAtb = data.rates.jpy;
+                    if (data.rates.krw) settings.rates.krwAtb = data.rates.krw;
+                    if (data.rates.krw_usd) settings.rates.krwUsd = data.rates.krw_usd;
+                    if (data.rates.eur_cb) settings.rates.eurCb = data.rates.eur_cb;
+                }
+                
+                // Загружаем расходы по странам
+                if (data.countryCosts) {
+                    if (data.countryCosts.japan) {
+                        settings.countryCosts.japan.localExpenses = data.countryCosts.japan.localExpenses;
+                        settings.countryCosts.japan.brokerFee = data.countryCosts.japan.brokerFee;
+                    }
+                    if (data.countryCosts.china) {
+                        settings.countryCosts.china.localExpenses = data.countryCosts.china.localExpenses;
+                        settings.countryCosts.china.brokerFee = data.countryCosts.china.brokerFee;
+                    }
+                    if (data.countryCosts.korea) {
+                        settings.countryCosts.korea.localExpenses = data.countryCosts.korea.localExpenses;
+                        settings.countryCosts.korea.brokerFee = data.countryCosts.korea.brokerFee;
+                    }
+                }
+                
+                // Загружаем фиксированные расходы
+                if (data.fixedCosts) {
+                    if (data.fixedCosts.customsFee) settings.fixedCosts.customsFee = data.fixedCosts.customsFee;
+                    if (data.fixedCosts.waycar) settings.fixedCosts.waycar = data.fixedCosts.waycar;
+                }
                 
                 renderRates();
                 renderAdminRates();
                 saveSettingsToLocal();
                 calculate();
                 
-                statusDiv.innerHTML = "✅ Курсы обновлены с сервера!";
+                statusDiv.innerHTML = "✅ Все настройки загружены с сервера!";
                 statusDiv.style.color = "#27ae60";
-                showToast("Курсы успешно загружены с сервера!", false);
+                showToast("Настройки успешно загружены с сервера!", false);
                 
                 setTimeout(function() { statusDiv.innerHTML = ""; }, 3000);
             }
@@ -306,7 +331,7 @@
             });
             
             if (response.ok) {
-                showToast("✅ Настройки сохранены на сервере!", false);
+                showToast("✅ Все настройки сохранены на сервере!", false);
                 return true;
             } else {
                 showToast("❌ Ошибка сохранения на сервере", true);
@@ -321,22 +346,6 @@
     
     function saveSettingsToLocal() {
         localStorage.setItem("carCalcSettings", JSON.stringify(settings));
-    }
-    
-    function loadSettingsFromLocal() {
-        var saved = localStorage.getItem("carCalcSettings");
-        if (saved) {
-            try {
-                var data = JSON.parse(saved);
-                if (data.countryCosts) settings.countryCosts = data.countryCosts;
-                if (data.rates) settings.rates = data.rates;
-                if (data.fixedCosts) settings.fixedCosts = data.fixedCosts;
-            } catch(e) {}
-        }
-        renderRates();
-        renderAdminRates();
-        updateCountryHint();
-        calculate();
     }
     
     function setManualKrwUsd() {
@@ -438,10 +447,16 @@
                 '<label>Китай (брокер):</label><input type="number" id="admin_chinaBroker" value="' + settings.countryCosts.china.brokerFee + '">' +
                 '<label>Корея (доставка):</label><input type="number" id="admin_koreaExpenses" value="' + settings.countryCosts.korea.localExpenses + '">' +
                 '<label>Корея (брокер):</label><input type="number" id="admin_koreaBroker" value="' + settings.countryCosts.korea.brokerFee + '">' +
+            '</div>' +
+            '<div style="margin-top:12px;font-weight:bold;">💰 Фиксированные расходы</div>' +
+            '<div class="edit-rates">' +
+                '<label>Таможенный сбор:</label><input type="number" id="admin_customsFee" step="1" value="' + settings.fixedCosts.customsFee + '">' +
+                '<label>Компания WayCar:</label><input type="number" id="admin_waycar" step="1" value="' + settings.fixedCosts.waycar + '">' +
             '</div>';
     }
     
     async function saveAdminSettings() {
+        // Сохраняем курсы
         settings.rates.usdAtb = parseFloat(document.getElementById("admin_usdAtb").value) || settings.rates.usdAtb;
         settings.rates.eurAtb = parseFloat(document.getElementById("admin_eurAtb").value) || settings.rates.eurAtb;
         settings.rates.cnyAtb = parseFloat(document.getElementById("admin_cnyAtb").value) || settings.rates.cnyAtb;
@@ -450,6 +465,7 @@
         settings.rates.krwUsd = parseFloat(document.getElementById("admin_krwUsd").value) || settings.rates.krwUsd;
         settings.rates.eurCb = parseFloat(document.getElementById("admin_eurCb").value) || settings.rates.eurCb;
         
+        // Сохраняем расходы по странам
         settings.countryCosts.japan.localExpenses = parseFloat(document.getElementById("admin_japanExpenses").value) || settings.countryCosts.japan.localExpenses;
         settings.countryCosts.japan.brokerFee = parseFloat(document.getElementById("admin_japanBroker").value) || settings.countryCosts.japan.brokerFee;
         settings.countryCosts.china.localExpenses = parseFloat(document.getElementById("admin_chinaExpenses").value) || settings.countryCosts.china.localExpenses;
@@ -457,10 +473,14 @@
         settings.countryCosts.korea.localExpenses = parseFloat(document.getElementById("admin_koreaExpenses").value) || settings.countryCosts.korea.localExpenses;
         settings.countryCosts.korea.brokerFee = parseFloat(document.getElementById("admin_koreaBroker").value) || settings.countryCosts.korea.brokerFee;
         
+        // Сохраняем фиксированные расходы
+        settings.fixedCosts.customsFee = parseFloat(document.getElementById("admin_customsFee").value) || settings.fixedCosts.customsFee;
+        settings.fixedCosts.waycar = parseFloat(document.getElementById("admin_waycar").value) || settings.fixedCosts.waycar;
+        
         saveSettingsToLocal();
         await saveSettingsToServer();
         renderRates();
-        showToast("Настройки сохранены на сервере!", false);
+        showToast("Все настройки сохранены на сервере!", false);
         calculate();
     }
     
@@ -615,8 +635,8 @@
         }
     }
     
-    // ==================== ЗАГРУЗКА КУРСОВ ПРИ СТАРТЕ ====================
-    fetchRatesFromServer();
+    // ==================== ЗАГРУЗКА НАСТРОЕК ПРИ СТАРТЕ ====================
+    fetchAllSettingsFromServer();
     
     // ==================== ИНИЦИАЛИЗАЦИЯ СОБЫТИЙ ====================
     document.querySelectorAll(".age-btn").forEach(function(btn) {
