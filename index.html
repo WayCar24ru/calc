@@ -105,7 +105,10 @@
     <div class="card">
         <div class="card-title">📊 Курсы валют (нажмите на значение для редактирования)</div>
         <div class="rates-grid" id="ratesGrid"></div>
-        <button class="btn-secondary" onclick="loadFromServer()">🔄 Обновить с сервера</button>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <button class="btn-secondary" style="flex: 1;" onclick="loadFromServer()">🔄 Загрузить с сервера</button>
+            <button class="btn-secondary" style="flex: 1;" onclick="updateRatesFromATB()">🏦 Обновить курсы с АТБ</button>
+        </div>
         <div id="updateStatus" class="status-bar"></div>
     </div>
     
@@ -139,6 +142,7 @@
     // ==================== АДРЕС СЕРВЕРА ====================
     var API_URL = "https://car-calc-api.onrender.com/settings";
     var SAVE_URL = "https://car-calc-api.onrender.com/save";
+    var UPDATE_URL = "https://car-calc-api.onrender.com/update";
     var ADMIN_PASSWORD = "100498";
     
     // ==================== НАСТРОЙКИ ====================
@@ -212,6 +216,36 @@
         return false;
     }
     
+    // ==================== ОБНОВЛЕНИЕ КУРСОВ С АТБ ====================
+    async function updateRatesFromATB() {
+        var statusDiv = document.getElementById("updateStatus");
+        statusDiv.innerHTML = "🏦 Обновление курсов с АТБ...";
+        showToast("Обновление курсов с АТБ...", false);
+        
+        try {
+            var response = await fetch(UPDATE_URL, { method: 'POST' });
+            var data = await response.json();
+            console.log("Ответ сервера:", data);
+            
+            if (data && data.rates) {
+                settings.rates = data.rates;
+                renderRates();
+                renderAdminRates();
+                calculate();
+                statusDiv.innerHTML = "✅ Курсы обновлены с АТБ!";
+                showToast("Курсы обновлены с АТБ!", false);
+                setTimeout(() => statusDiv.innerHTML = "", 3000);
+            } else {
+                statusDiv.innerHTML = "❌ Ошибка обновления";
+                showToast("Ошибка обновления курсов", true);
+            }
+        } catch(e) {
+            console.error(e);
+            statusDiv.innerHTML = "❌ Ошибка: " + e.message;
+            showToast("Ошибка: " + e.message, true);
+        }
+    }
+    
     // ==================== СОХРАНЕНИЕ НА СЕРВЕР ====================
     async function saveToServer() {
         showToast("Сохранение...", false);
@@ -244,7 +278,7 @@
         }
     }
     
-    // ==================== РЕДАКТИРОВАНИЕ КУРСА (без подтверждений) ====================
+    // ==================== РЕДАКТИРОВАНИЕ КУРСА ====================
     function startEdit(key, element) {
         if (editingKey) return;
         editingKey = key;
