@@ -150,7 +150,6 @@
 </div>
 
 <div id="toast" class="toast"></div>
-<div id="loadingOverlay" class="loading" style="display: none;">Загрузка настроек...</div>
 
 <script>
     // ==================== АДРЕС ВАШЕГО СЕРВЕРА ====================
@@ -263,7 +262,6 @@
             var data = await response.json();
             
             if (data) {
-                // Загружаем курсы
                 if (data.rates) {
                     if (data.rates.usd) settings.rates.usdAtb = data.rates.usd;
                     if (data.rates.eur) settings.rates.eurAtb = data.rates.eur;
@@ -274,7 +272,6 @@
                     if (data.rates.eur_cb) settings.rates.eurCb = data.rates.eur_cb;
                 }
                 
-                // Загружаем расходы по странам
                 if (data.countryCosts) {
                     if (data.countryCosts.japan) {
                         settings.countryCosts.japan.localExpenses = data.countryCosts.japan.localExpenses;
@@ -290,7 +287,6 @@
                     }
                 }
                 
-                // Загружаем фиксированные расходы
                 if (data.fixedCosts) {
                     if (data.fixedCosts.customsFee) settings.fixedCosts.customsFee = data.fixedCosts.customsFee;
                     if (data.fixedCosts.waycar) settings.fixedCosts.waycar = data.fixedCosts.waycar;
@@ -302,12 +298,11 @@
                 statusDiv.innerHTML = "✅ Настройки загружены с сервера!";
                 statusDiv.style.color = "#27ae60";
                 setTimeout(function() { statusDiv.innerHTML = ""; }, 3000);
-                
                 return true;
             }
         } catch(e) {
             console.error("Ошибка загрузки с сервера:", e);
-            statusDiv.innerHTML = "❌ Ошибка подключения к серверу, используются локальные настройки";
+            statusDiv.innerHTML = "❌ Ошибка подключения к серверу";
             statusDiv.style.color = "#e74c3c";
             setTimeout(function() { statusDiv.innerHTML = ""; }, 3000);
             return false;
