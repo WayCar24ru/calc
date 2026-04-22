@@ -30,10 +30,10 @@
         .spoiler-content { display: none; margin-top: 12px; background: #f8f9fa; border-radius: 12px; padding: 12px; white-space: pre-wrap; font-family: monospace; font-size: 0.75rem; overflow-x: auto; }
         .spoiler-content.show { display: block; }
         .rates-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; margin-bottom: 12px; }
-        .rates-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; cursor: pointer; }
-        .rates-item:hover { background: #f5f5f5; }
+        .rates-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; }
         .rates-label { color: #7f8c8d; font-weight: 500; }
-        .rates-value { font-weight: 600; color: #2c3e50; }
+        .rates-value { font-weight: 600; color: #2c3e50; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+        .rates-value:hover { background: #e0e0e0; }
         .admin-panel { display: none; margin-top: 16px; padding: 16px; background: #fef9e7; border-radius: 16px; border: 1px solid #f39c12; }
         .admin-panel.show { display: block; }
         .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
@@ -161,7 +161,7 @@
     };
     
     var currentAge = 2;
-    var isLoading = true;
+    var editingKey = null;
     
     function showToast(message, isError) {
         var toast = document.getElementById("toast");
@@ -171,8 +171,8 @@
         setTimeout(function() { toast.classList.remove("show"); }, 3000);
     }
     
-    function formatNumber(num) {
-        if (num === undefined || isNaN(num)) return "0";
+    function formatNumberWithSpaces(num) {
+        if (num === undefined || num === null || isNaN(num)) return "0";
         return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
     }
     
@@ -244,22 +244,44 @@
         }
     }
     
-    // ==================== РЕДАКТИРОВАНИЕ КУРСА ====================
-    function editRate(key, currentValue) {
-        var newValue = prompt("Введите новое значение:", currentValue);
-        if (newValue !== null) {
-            var parsed = parseFloat(newValue);
-            if (!isNaN(parsed) && parsed > 0) {
-                settings.rates[key] = parsed;
+    // ==================== РЕДАКТИРОВАНИЕ КУРСА (без подтверждений) ====================
+    function startEdit(key, element) {
+        if (editingKey) return;
+        editingKey = key;
+        var currentValue = settings.rates[key];
+        var span = element;
+        var input = document.createElement("input");
+        input.type = "number";
+        input.step = "0.01";
+        input.value = currentValue;
+        input.style.width = "100px";
+        input.style.padding = "4px 6px";
+        input.style.border = "1px solid #3498db";
+        input.style.borderRadius = "8px";
+        input.style.textAlign = "right";
+        
+        input.addEventListener("blur", function() {
+            var newValue = parseFloat(this.value);
+            if (!isNaN(newValue) && newValue > 0) {
+                settings.rates[key] = newValue;
                 renderRates();
                 renderAdminRates();
-                calculate();
                 saveToServer();
+                calculate();
                 showToast("Курс обновлён и сохранён!", false);
-            } else {
-                showToast("Введите корректное число!", true);
             }
-        }
+            editingKey = null;
+        });
+        
+        input.addEventListener("keypress", function(e) {
+            if (e.key === "Enter") {
+                this.blur();
+            }
+        });
+        
+        span.innerHTML = "";
+        span.appendChild(input);
+        input.focus();
     }
     
     function renderRates() {
@@ -277,9 +299,9 @@
         ];
         
         grid.innerHTML = ratesList.map(item => `
-            <div class="rates-item" onclick="editRate('${item.key}', ${settings.rates[item.key]})">
+            <div class="rates-item">
                 <span class="rates-label">${item.label}</span>
-                <span class="rates-value">${settings.rates[item.key].toFixed(2)}${item.suffix}</span>
+                <span class="rates-value" data-key="${item.key}" onclick="startEdit('${item.key}', this)">${settings.rates[item.key].toFixed(2)}${item.suffix}</span>
             </div>
         `).join('');
     }
@@ -372,11 +394,6 @@
         var country = document.getElementById("country").value;
         var hintMap = { japan: "💡 Цену смотрите на аукционе USS или в инвойсе", china: "💡 Цену смотрите на 1688, Taobao или в инвойсе", korea: "💡 На Encart найдите '판매가' (продажная цена)" };
         document.getElementById("countryHint").innerHTML = hintMap[country] || "";
-    }
-    
-    function formatNumberWithSpaces(num) {
-        if (num === undefined || num === null || isNaN(num)) return "0";
-        return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
     }
     
     // ==================== РАСЧЁТ ТАМОЖНИ ====================
@@ -526,10 +543,7 @@
     document.getElementById("price").addEventListener("input", function() { calculate(); });
     document.getElementById("volume").addEventListener("input", function() { calculate(); });
     
-    loadFromServer().then(function() {
-        isLoading = false;
-        calculate();
-    });
+    loadFromServer();
     
     document.querySelectorAll(".age-btn").forEach(function(btn) { 
         if (parseInt(btn.dataset.age) === currentAge) btn.classList.add("active"); 
