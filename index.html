@@ -41,11 +41,7 @@
         .contacts { text-align: center; padding: 12px; background: #f8f9fa; border-radius: 16px; margin-top: 16px; font-size: 0.8rem; }
         .contacts a { color: #2980b9; text-decoration: none; }
         .hint { font-size: 0.7rem; color: #7f8c8d; margin-top: 4px; }
-        .modal { display: flex; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: white; border-radius: 20px; padding: 20px; width: 280px; text-align: center; }
-        .modal-content input { width: 100%; padding: 12px; margin: 12px 0; border: 1px solid #ddd; border-radius: 12px; }
-        .modal-content .error { color: #e74c3c; font-size: 0.8rem; display: none; }
-        #mainContent { display: none; }
+        #mainContent { display: block; }
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 8px 16px; border-radius: 40px; font-size: 0.8rem; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
         .toast.show { opacity: 1; }
         .status-bar { font-size: 0.7rem; color: #7f8c8d; text-align: center; margin-top: 8px; }
@@ -59,15 +55,6 @@
     </style>
 </head>
 <body>
-
-<div id="passwordModal" class="modal">
-    <div class="modal-content">
-        <div style="font-weight: bold; margin-bottom: 10px;">🔐 Введите пароль для доступа</div>
-        <input type="password" id="accessPassword" placeholder="Пароль" autofocus>
-        <div id="passwordError" class="error">❌ Неверный пароль</div>
-        <button class="btn-primary" style="padding: 10px;" onclick="checkAccessPassword()">Войти</button>
-    </div>
-</div>
 
 <div id="mainContent">
 <div class="container">
@@ -133,10 +120,10 @@
     <div id="adminPanel" class="admin-panel">
         <div class="card-title" style="border-left-color: #f39c12;">👑 Админ-панель</div>
         <div id="adminRates"></div>
-        <button class="btn-primary" style="background: #27ae60; margin-top: 12px;" onclick="saveAdminSettings()">💾 Сохранить настройки</button>
+        <button class="btn-primary" style="background: #27ae60; margin-top: 12px;" onclick="saveAdminSettings()">💾 Сохранить настройки на сервер</button>
     </div>
     
-    <button class="btn-outline" onclick="showAdminPassword()" style="margin-top: 8px;">👑 Admin</button>
+    <button class="btn-outline" onclick="showAdminPanel()" style="margin-top: 8px;">👑 Admin</button>
     
     <div class="contacts">
         <div>📢 Хотите заказать автомобиль?</div>
@@ -150,11 +137,9 @@
 <div id="toast" class="toast"></div>
 
 <script>
-    // ==================== ЗАЩИТА ПАРОЛЕМ ====================
-    var ACCESS_PASSWORD = "secret123";
-    
     // ==================== АДРЕС ВАШЕГО СЕРВЕРА ====================
     var API_URL = "https://car-calc-api.onrender.com/rates";
+    var SAVE_URL = "https://car-calc-api.onrender.com/save";
     
     function showToast(message, isError) {
         var toast = document.getElementById("toast");
@@ -163,24 +148,6 @@
         toast.classList.add("show");
         setTimeout(function() { toast.classList.remove("show"); }, 3000);
     }
-    
-    function checkAccessPassword() {
-        var pwd = document.getElementById("accessPassword").value;
-        if (pwd === ACCESS_PASSWORD) {
-            document.getElementById("passwordModal").style.display = "none";
-            document.getElementById("mainContent").style.display = "block";
-            loadSettings();
-            fetchRatesFromServer();
-        } else {
-            document.getElementById("passwordError").style.display = "block";
-            document.getElementById("accessPassword").value = "";
-            document.getElementById("accessPassword").focus();
-        }
-    }
-    
-    document.getElementById("accessPassword").addEventListener("keypress", function(e) { 
-        if (e.key === "Enter") checkAccessPassword(); 
-    });
     
     // ==================== ФОРМАТИРОВАНИЕ ЦЕНЫ ====================
     function formatNumberWithSpaces(num) {
@@ -258,7 +225,7 @@
                 
                 renderRates();
                 renderAdminRates();
-                saveSettings();
+                saveSettingsToLocal();
                 calculate();
                 
                 statusDiv.innerHTML = "✅ Курсы обновлены с сервера!";
@@ -276,7 +243,40 @@
         }
     }
     
-    function loadSettings() {
+    // ==================== СОХРАНЕНИЕ НАСТРОЕК НА СЕРВЕР ====================
+    async function saveSettingsToServer() {
+        showToast("Сохранение настроек на сервер...", false);
+        
+        try {
+            var response = await fetch(SAVE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    rates: settings.rates,
+                    countryCosts: settings.countryCosts,
+                    fixedCosts: settings.fixedCosts
+                })
+            });
+            
+            if (response.ok) {
+                showToast("✅ Настройки сохранены на сервере!", false);
+                return true;
+            } else {
+                showToast("❌ Ошибка сохранения на сервере", true);
+                return false;
+            }
+        } catch(e) {
+            console.error("Ошибка сохранения:", e);
+            showToast("❌ Не удалось сохранить настройки на сервере", true);
+            return false;
+        }
+    }
+    
+    function saveSettingsToLocal() {
+        localStorage.setItem("carCalcSettings", JSON.stringify(settings));
+    }
+    
+    function loadSettingsFromLocal() {
         var saved = localStorage.getItem("carCalcSettings");
         if (saved) {
             try {
@@ -292,10 +292,6 @@
         calculate();
     }
     
-    function saveSettings() { 
-        localStorage.setItem("carCalcSettings", JSON.stringify(settings)); 
-    }
-    
     function setManualKrwUsd() {
         var input = document.getElementById("manualKrwUsd").value;
         var rate = parseFloat(input.replace(/,/g, '.'));
@@ -303,7 +299,8 @@
             settings.rates.krwUsd = rate;
             renderRates();
             renderAdminRates();
-            saveSettings();
+            saveSettingsToLocal();
+            saveSettingsToServer();
             calculate();
             showToast("Курс KRW/USD установлен: " + rate.toFixed(2) + " и сохранён!", false);
         } else {
@@ -332,9 +329,10 @@
                 settings.rates[key] = newValue;
                 renderRates();
                 renderAdminRates();
-                saveSettings();
+                saveSettingsToLocal();
+                saveSettingsToServer();
                 calculate();
-                showToast("Курс обновлён!", false);
+                showToast("Курс обновлён и сохранён на сервере!", false);
             }
             editingKey = null;
         });
@@ -396,7 +394,7 @@
             '</div>';
     }
     
-    function saveAdminSettings() {
+    async function saveAdminSettings() {
         settings.rates.usdAtb = parseFloat(document.getElementById("admin_usdAtb").value) || settings.rates.usdAtb;
         settings.rates.eurAtb = parseFloat(document.getElementById("admin_eurAtb").value) || settings.rates.eurAtb;
         settings.rates.cnyAtb = parseFloat(document.getElementById("admin_cnyAtb").value) || settings.rates.cnyAtb;
@@ -412,9 +410,10 @@
         settings.countryCosts.korea.localExpenses = parseFloat(document.getElementById("admin_koreaExpenses").value) || settings.countryCosts.korea.localExpenses;
         settings.countryCosts.korea.brokerFee = parseFloat(document.getElementById("admin_koreaBroker").value) || settings.countryCosts.korea.brokerFee;
         
-        saveSettings();
+        saveSettingsToLocal();
+        await saveSettingsToServer();
         renderRates();
-        showToast("Настройки сохранены!", false);
+        showToast("Настройки сохранены на сервере!", false);
         calculate();
     }
     
@@ -569,17 +568,15 @@
         }
     }
     
-    function showAdminPassword() {
-        var pwd = prompt("🔐 Введите пароль администратора:");
-        if (pwd === "100498") { 
-            document.getElementById("adminPanel").classList.add("show"); 
-            renderAdminRates(); 
-        } else if (pwd !== null) { 
-            showToast("Неверный пароль!", true); 
-        }
+    function showAdminPanel() {
+        document.getElementById("adminPanel").classList.add("show");
+        renderAdminRates();
     }
     
-    // ==================== ИНИЦИАЛИЗАЦИЯ ====================
+    // ==================== ЗАГРУЗКА КУРСОВ ПРИ СТАРТЕ ====================
+    fetchRatesFromServer();
+    
+    // ==================== ИНИЦИАЛИЗАЦИЯ СОБЫТИЙ ====================
     document.querySelectorAll(".age-btn").forEach(function(btn) {
         btn.addEventListener("click", function() {
             document.querySelectorAll(".age-btn").forEach(function(b) { b.classList.remove("active"); });
