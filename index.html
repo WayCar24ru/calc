@@ -52,9 +52,24 @@
         @media (max-width: 480px) { .total-value { font-size: 1.4rem; } .age-btn { font-size: 0.7rem; padding: 8px 4px; } .rates-grid { grid-template-columns: 1fr; } }
         .price-input-wrapper { position: relative; }
         .price-input-wrapper input { padding-right: 30px; text-align: right; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; border-radius: 20px; padding: 20px; width: 280px; text-align: center; }
+        .modal-content input { width: 100%; padding: 12px; margin: 12px 0; border: 1px solid #ddd; border-radius: 12px; }
+        .modal-content .error { color: #e74c3c; font-size: 0.8rem; display: none; }
     </style>
 </head>
 <body>
+
+<!-- Модальное окно для пароля админ-панели -->
+<div id="adminPasswordModal" class="modal">
+    <div class="modal-content">
+        <div style="font-weight: bold; margin-bottom: 10px;">🔐 Введите пароль администратора</div>
+        <input type="password" id="adminPassword" placeholder="Пароль" autofocus>
+        <div id="adminPasswordError" class="error">❌ Неверный пароль</div>
+        <button class="btn-primary" style="padding: 10px;" onclick="checkAdminPassword()">Войти</button>
+        <button class="btn-outline" style="margin-top: 8px; padding: 8px;" onclick="closeAdminPasswordModal()">Отмена</button>
+    </div>
+</div>
 
 <div id="mainContent">
 <div class="container">
@@ -123,7 +138,7 @@
         <button class="btn-primary" style="background: #27ae60; margin-top: 12px;" onclick="saveAdminSettings()">💾 Сохранить настройки на сервер</button>
     </div>
     
-    <button class="btn-outline" onclick="showAdminPanel()" style="margin-top: 8px;">👑 Admin</button>
+    <button class="btn-outline" onclick="showAdminPasswordModal()" style="margin-top: 8px;">👑 Admin</button>
     
     <div class="contacts">
         <div>📢 Хотите заказать автомобиль?</div>
@@ -141,6 +156,9 @@
     var API_URL = "https://car-calc-api.onrender.com/rates";
     var SAVE_URL = "https://car-calc-api.onrender.com/save";
     
+    // ==================== ПАРОЛЬ АДМИН-ПАНЕЛИ ====================
+    var ADMIN_PASSWORD = "100498";
+    
     function showToast(message, isError) {
         var toast = document.getElementById("toast");
         toast.textContent = message;
@@ -148,6 +166,35 @@
         toast.classList.add("show");
         setTimeout(function() { toast.classList.remove("show"); }, 3000);
     }
+    
+    // ==================== МОДАЛЬНОЕ ОКНО АДМИН-ПАНЕЛИ ====================
+    function showAdminPasswordModal() {
+        document.getElementById("adminPasswordModal").style.display = "flex";
+        document.getElementById("adminPassword").value = "";
+        document.getElementById("adminPasswordError").style.display = "none";
+        document.getElementById("adminPassword").focus();
+    }
+    
+    function closeAdminPasswordModal() {
+        document.getElementById("adminPasswordModal").style.display = "none";
+    }
+    
+    function checkAdminPassword() {
+        var pwd = document.getElementById("adminPassword").value;
+        if (pwd === ADMIN_PASSWORD) {
+            closeAdminPasswordModal();
+            document.getElementById("adminPanel").classList.add("show");
+            renderAdminRates();
+        } else {
+            document.getElementById("adminPasswordError").style.display = "block";
+            document.getElementById("adminPassword").value = "";
+            document.getElementById("adminPassword").focus();
+        }
+    }
+    
+    document.getElementById("adminPassword").addEventListener("keypress", function(e) { 
+        if (e.key === "Enter") checkAdminPassword(); 
+    });
     
     // ==================== ФОРМАТИРОВАНИЕ ЦЕНЫ ====================
     function formatNumberWithSpaces(num) {
@@ -566,11 +613,6 @@
             content.classList.add("show"); 
             btn.textContent = "▼ Скрыть подробный расчёт"; 
         }
-    }
-    
-    function showAdminPanel() {
-        document.getElementById("adminPanel").classList.add("show");
-        renderAdminRates();
     }
     
     // ==================== ЗАГРУЗКА КУРСОВ ПРИ СТАРТЕ ====================
