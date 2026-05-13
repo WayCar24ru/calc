@@ -41,7 +41,6 @@
         .contacts { text-align: center; padding: 12px; background: #f8f9fa; border-radius: 16px; margin-top: 16px; font-size: 0.8rem; }
         .contacts a { color: #2980b9; text-decoration: none; }
         .hint { font-size: 0.7rem; color: #7f8c8d; margin-top: 4px; }
-        .status-bar { font-size: 0.7rem; color: #7f8c8d; text-align: center; margin-top: 8px; }
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 8px 16px; border-radius: 40px; font-size: 0.8rem; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
         .toast.show { opacity: 1; }
         .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
@@ -54,6 +53,7 @@
 </head>
 <body>
 
+<!-- Модальное окно для пароля админ-панели -->
 <div id="adminPasswordModal" class="modal">
     <div class="modal-content">
         <div style="font-weight: bold; margin-bottom: 10px;">🔐 Введите пароль администратора</div>
@@ -105,11 +105,9 @@
     <div class="card">
         <div class="card-title">📊 Курсы валют (нажмите на значение для редактирования)</div>
         <div class="rates-grid" id="ratesGrid"></div>
-        <div style="display: flex; gap: 8px; margin-top: 8px;">
-            <button class="btn-secondary" style="flex: 1;" onclick="loadFromServer()">🔄 Загрузить с сервера</button>
-            <button class="btn-secondary" style="flex: 1;" onclick="updateRatesFromATB()">🏦 Обновить курсы с АТБ</button>
+        <div style="font-size: 0.7rem; color: #7f8c8d; text-align: center; margin-top: 8px;">
+            💡 Курсы сохраняются в браузере и не сбрасываются после перезагрузки
         </div>
-        <div id="updateStatus" class="status-bar"></div>
     </div>
     
     <div class="total">
@@ -123,7 +121,7 @@
     <div id="adminPanel" class="admin-panel">
         <div class="card-title" style="border-left-color: #f39c12;">👑 Админ-панель</div>
         <div id="adminRates"></div>
-        <button class="btn-primary" style="background: #27ae60; margin-top: 12px;" onclick="saveAdminSettings()">💾 Сохранить настройки на сервер</button>
+        <button class="btn-primary" style="background: #27ae60; margin-top: 12px;" onclick="saveAdminSettings()">💾 Сохранить настройки</button>
     </div>
     
     <button class="btn-outline" onclick="showAdminPasswordModal()" style="margin-top: 8px;">👑 Admin</button>
@@ -139,22 +137,18 @@
 <div id="toast" class="toast"></div>
 
 <script>
-    // ==================== АДРЕС СЕРВЕРА ====================
-    var API_URL = "https://car-calc-api.onrender.com/settings";
-    var SAVE_URL = "https://car-calc-api.onrender.com/save";
-    var UPDATE_URL = "https://car-calc-api.onrender.com/update";
     var ADMIN_PASSWORD = "100498";
     
-    // ==================== НАСТРОЙКИ ====================
+    // ==================== НАСТРОЙКИ ПО УМОЛЧАНИЮ ====================
     var settings = {
         rates: {
-            usd: 77.52,
-            eur: 92.08,
-            cny: 11.35,
-            jpy: 51.50,
+            usd: 76.50,
+            eur: 90.95,
+            cny: 11.23,
+            jpy: 51.29,
             krw: 16.89,
             krw_usd: 1450.0,
-            eur_cb: 89.63
+            eur_cb: 88.38
         },
         countryCosts: {
             japan: { localExpenses: 220000, brokerFee: 27000, currencyName: "йен" },
@@ -185,97 +179,30 @@
         return parseFloat(str.replace(/\s/g, "")) || 0;
     }
     
-    // ==================== ЗАГРУЗКА С СЕРВЕРА ====================
-    async function loadFromServer() {
-        var statusDiv = document.getElementById("updateStatus");
-        statusDiv.innerHTML = "⏳ Загрузка...";
-        try {
-            var response = await fetch(API_URL);
-            var data = await response.json();
-            console.log("Загружено:", data);
-            
-            if (data && data.rates) {
-                settings.rates = data.rates;
-                settings.countryCosts = data.countryCosts || settings.countryCosts;
-                settings.fixedCosts = data.fixedCosts || settings.fixedCosts;
-                
-                renderRates();
-                renderAdminRates();
-                updateCountryHint();
-                statusDiv.innerHTML = "✅ Загружено";
-                setTimeout(() => statusDiv.innerHTML = "", 2000);
-                calculate();
-                return true;
-            }
-        } catch(e) {
-            console.error(e);
-            statusDiv.innerHTML = "❌ Ошибка";
-            setTimeout(() => statusDiv.innerHTML = "", 2000);
-            return false;
+    // ==================== ЗАГРУЗКА/СОХРАНЕНИЕ В localStorage ====================
+    function loadSettings() {
+        var saved = localStorage.getItem("carCalcSettings");
+        if (saved) {
+            try {
+                var data = JSON.parse(saved);
+                if (data.rates) settings.rates = data.rates;
+                if (data.countryCosts) settings.countryCosts = data.countryCosts;
+                if (data.fixedCosts) settings.fixedCosts = data.fixedCosts;
+            } catch(e) {}
         }
-        return false;
+        renderRates();
+        renderAdminRates();
+        updateCountryHint();
+        calculate();
     }
     
-    // ==================== ОБНОВЛЕНИЕ КУРСОВ С АТБ ====================
-    async function updateRatesFromATB() {
-        var statusDiv = document.getElementById("updateStatus");
-        statusDiv.innerHTML = "🏦 Обновление курсов с АТБ...";
-        showToast("Обновление курсов с АТБ...", false);
-        
-        try {
-            var response = await fetch(UPDATE_URL, { method: 'POST' });
-            var data = await response.json();
-            console.log("Ответ сервера:", data);
-            
-            if (data && data.rates) {
-                settings.rates = data.rates;
-                renderRates();
-                renderAdminRates();
-                calculate();
-                statusDiv.innerHTML = "✅ Курсы обновлены с АТБ!";
-                showToast("Курсы обновлены с АТБ!", false);
-                setTimeout(() => statusDiv.innerHTML = "", 3000);
-            } else {
-                statusDiv.innerHTML = "❌ Ошибка обновления";
-                showToast("Ошибка обновления курсов", true);
-            }
-        } catch(e) {
-            console.error(e);
-            statusDiv.innerHTML = "❌ Ошибка: " + e.message;
-            showToast("Ошибка: " + e.message, true);
-        }
-    }
-    
-    // ==================== СОХРАНЕНИЕ НА СЕРВЕР ====================
-    async function saveToServer() {
-        showToast("Сохранение...", false);
-        var dataToSave = {
+    function saveSettings() {
+        localStorage.setItem("carCalcSettings", JSON.stringify({
             rates: settings.rates,
             countryCosts: settings.countryCosts,
             fixedCosts: settings.fixedCosts
-        };
-        console.log("Отправляем:", dataToSave);
-        
-        try {
-            var response = await fetch(SAVE_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dataToSave)
-            });
-            var result = await response.json();
-            console.log("Ответ:", result);
-            if (response.ok) {
-                showToast("✅ Сохранено!", false);
-                return true;
-            } else {
-                showToast("❌ Ошибка", true);
-                return false;
-            }
-        } catch(e) {
-            console.error(e);
-            showToast("❌ Ошибка: " + e.message, true);
-            return false;
-        }
+        }));
+        showToast("Настройки сохранены!", false);
     }
     
     // ==================== РЕДАКТИРОВАНИЕ КУРСА ====================
@@ -300,9 +227,9 @@
                 settings.rates[key] = newValue;
                 renderRates();
                 renderAdminRates();
-                saveToServer();
+                saveSettings();
                 calculate();
-                showToast("Курс обновлён и сохранён!", false);
+                showToast("Курс обновлён!", false);
             }
             editingKey = null;
         });
@@ -364,12 +291,12 @@
             '</div>' +
             '<div style="margin-top:12px; font-weight:bold;">💰 Фиксированные расходы</div>' +
             '<div class="edit-grid">' +
-                '<label>Таможенный сбор:</label><input type="number" id="admin_customs" value="' + settings.fixedCosts.customsFee + '">' +
-                '<label>Компания WayCar:</label><input type="number" id="admin_waycar" value="' + settings.fixedCosts.waycar + '">' +
+                '<label>Таможенный сбор:</label><input type="number" id="admin_customs" step="1" value="' + settings.fixedCosts.customsFee + '">' +
+                '<label>Компания WayCar:</label><input type="number" id="admin_waycar" step="1" value="' + settings.fixedCosts.waycar + '">' +
             '</div>';
     }
     
-    async function saveAdminSettings() {
+    function saveAdminSettings() {
         settings.rates.usd = parseFloat(document.getElementById("admin_usd").value) || settings.rates.usd;
         settings.rates.eur = parseFloat(document.getElementById("admin_eur").value) || settings.rates.eur;
         settings.rates.cny = parseFloat(document.getElementById("admin_cny").value) || settings.rates.cny;
@@ -389,8 +316,7 @@
         settings.fixedCosts.waycar = parseFloat(document.getElementById("admin_waycar").value) || settings.fixedCosts.waycar;
         
         renderRates();
-        await saveToServer();
-        showToast("Настройки сохранены!", false);
+        saveSettings();
         calculate();
     }
     
@@ -430,7 +356,7 @@
         document.getElementById("countryHint").innerHTML = hintMap[country] || "";
     }
     
-    // ==================== РАСЧЁТ ТАМОЖНИ ====================
+    // ==================== РАСЧЁТ ====================
     function getCustomsRate(priceEur, volume, age) {
         if (age < 3) {
             var ratePerCm, percent;
@@ -485,7 +411,7 @@
         } else {
             var usdAmount = priceLocal / rates.krw_usd;
             priceRub = usdAmount * rates.usd;
-            conversionDesc = formatNumberWithSpaces(priceLocal) + " вон ÷ " + rates.krw_usd.toFixed(2) + " = " + usdAmount.toFixed(2) + " USD × " + rates.usd.toFixed(2);
+            conversionDesc = formatNumberWithSpaces(priceLocal) + " вон ÷ " + rates.krw_usd.toFixed(2) + " = " + usdAmount.toFixed(2) + " USD × " + rates.usd.toFixed(2) + " руб";
         }
         
         var localExpensesRub;
@@ -577,7 +503,7 @@
     document.getElementById("price").addEventListener("input", function() { calculate(); });
     document.getElementById("volume").addEventListener("input", function() { calculate(); });
     
-    loadFromServer();
+    loadSettings();
     
     document.querySelectorAll(".age-btn").forEach(function(btn) { 
         if (parseInt(btn.dataset.age) === currentAge) btn.classList.add("active"); 
